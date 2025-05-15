@@ -48,9 +48,6 @@ def parse_time(s: str):
             continue
     raise ValueError(f"Time '{s}' not in a supported format (e.g. '4p', '4pm', '04:00', '16:00', '4:30pm')")
 
-eastern = ZoneInfo("America/New_York")
-now_local = datetime.now(eastern).time()
-
 # ============================================================================
 # SET UP DYNAMIC FILTERS
 
@@ -155,7 +152,7 @@ with filters:
         if mode == "All":
             st.write("Showing **all** times.")
         elif mode == "Now":
-            now = now_local
+            now = datetime.now().time()
             st.write(f"Current time: **{now.strftime('%I:%M %p').lstrip('0')}**")
         elif mode == "Custom Time":
             txt = st.text_input(
@@ -193,7 +190,7 @@ with filters:
 filtered_df = dynamic.filter_df()
 mode = st.session_state.get('time_mode', 'All')
 if mode == "Now":
-    now = now_local
+    now = datetime.now().time()
     filtered_df = filtered_df[
         (filtered_df['Start Time'].apply(parse_time) <= now) &
         (filtered_df['End Time'].apply(parse_time)   >= now)
