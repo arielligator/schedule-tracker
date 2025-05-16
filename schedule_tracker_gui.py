@@ -205,7 +205,7 @@ elif mode == "Custom Time":
         t = parse_time(st.session_state.get('custom_time_txt', '12:00'))
         filtered_df = filtered_df[
             (filtered_df['Start Time'].apply(parse_time) <= t) &
-            (filtered_df['End Time'].apply(parse_time)   >= t)
+            (filtered_df['End Time'].apply(parse_time)   > t)
         ]
 elif mode == "Custom Time Range":
     start_txt = st.session_state.get("start_txt", "")
@@ -220,7 +220,7 @@ elif mode == "Custom Time Range":
             # keep rows whose shift_start ≤ filter_end  AND  shift_end ≥ filter_start
             filtered_df = filtered_df[
                 (filtered_df['Start Time'].apply(parse_time) <= e) &
-                (filtered_df['End Time'].apply(parse_time)   >= s)
+                (filtered_df['End Time'].apply(parse_time)   > s)
             ]
 
 # ============================================================================
