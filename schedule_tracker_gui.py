@@ -7,6 +7,7 @@ from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
 from zoneinfo import ZoneInfo
+import os, time
 
 
 st.set_page_config(
@@ -15,6 +16,9 @@ st.set_page_config(
     page_icon="📅",
 )
 
+# force the whole process to treat “local” as America/New_York
+os.environ['TZ'] = 'America/New_York'
+time.tzset()
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -255,12 +259,8 @@ with counter:
     mode = st.session_state.get("time_mode", "All")
 
     if mode == "Now":
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-
-        # Always grab “now” in Eastern
-        now_et = datetime.now(ZoneInfo("America/New_York")).time()
-        hours_to_plot = [now_et.hour]
+        now = datetime.now().time()
+        hours_to_plot = [now.hour]
 
     elif mode == "Custom Time":
         txt = st.session_state.get("custom_time_txt", "")
