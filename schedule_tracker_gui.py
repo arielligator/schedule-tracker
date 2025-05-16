@@ -245,18 +245,28 @@ with count:
 # EXTRACT COUNTS AND RENDER DATA
 
 with counter:
-    # 1️⃣ Figure out which integer hours come from the user’s time filter
+    # ——————————————————————————————
+    # 0️⃣ First, apply all your other filters (Name/Team/Location/Day) but skip Time
+    #    (if you’re using streamlit_dynamic_filters; otherwise replace with your own filtering logic)
+    filtered_df = dynamic.filter_df(except_filter="Time of Day")
+
+    # ——————————————————————————————
+    # 1️⃣ Decide which hour(s) to plot
     mode = st.session_state.get("time_mode", "All")
 
     if mode == "Now":
-        now = datetime.now().time()
-        hours_to_plot = [now.hour]
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        # Always grab “now” in Eastern
+        now_et = datetime.now(ZoneInfo("America/New_York")).time()
+        hours_to_plot = [now_et.hour]
 
     elif mode == "Custom Time":
         txt = st.session_state.get("custom_time_txt", "")
         if txt:
             try:
-                t = parse_time(txt)
+                t = parse_time(txt)        # naive time, but frame is already Eastern
                 hours_to_plot = [t.hour]
             except ValueError:
                 hours_to_plot = []
@@ -270,7 +280,6 @@ with counter:
             try:
                 s = parse_time(start_txt)
                 e = parse_time(end_txt)
-                # build [s, s+1, ..., e-1]
                 hours_to_plot = list(range(s.hour, e.hour))
             except ValueError:
                 hours_to_plot = []
@@ -280,32 +289,32 @@ with counter:
     else:  # “All”
         hours_to_plot = list(range(24))
 
-    # 2️⃣ If we have any hours, count “on duty” per hour
+    # ——————————————————————————————
+    # 2️⃣ Count “on duty” per hour (all comparisons now between ints)
     if hours_to_plot:
-        # parse integer start/end once
-        filtered_df['start_hour'] = filtered_df['Start Time'].apply(lambda s: parse_time(s).hour)
-        filtered_df['end_hour']   = filtered_df['End Time'].  apply(lambda s: parse_time(s).hour)
+        # Extract integer hours from your Eastern‐time strings
+        filtered_df["start_hour"] = filtered_df["Start Time"].apply(lambda s: parse_time(s).hour)
+        filtered_df["end_hour"]   = filtered_df["End Time"].  apply(lambda s: parse_time(s).hour)
 
         counts = [
-            ((filtered_df['start_hour'] <= h) & (filtered_df['end_hour'] > h)).sum()
+            ((filtered_df["start_hour"] <= h) & (filtered_df["end_hour"] > h)).sum()
             for h in hours_to_plot
         ]
-        counts_by_hour = pd.Series(counts, index=hours_to_plot, name='Employee Count')
+        counts_by_hour = pd.Series(counts, index=hours_to_plot, name="Employee Count")
 
-        # 3️⃣ Helpers to format “9–10am” labels
+        # 3️⃣ Format labels like “9am–10am”
         def fmt_hour(h):
-            suffix = 'am' if h < 12 else 'pm'
+            suffix = "am" if h < 12 else "pm"
             hour   = h % 12 or 12
             return f"{hour}{suffix}"
         def fmt_range(h):
             return f"{fmt_hour(h)}–{fmt_hour((h+1)%24)}"
 
-        # 4️⃣ Build the tiny table and show it
-        df_counts = counts_by_hour.to_frame().rename_axis('Hour Range')
+        # 4️⃣ Build and display the table
+        df_counts = counts_by_hour.to_frame().rename_axis("Hour Range")
         df_counts.index = df_counts.index.map(fmt_range)
-
         st.dataframe(df_counts, use_container_width=True)
-
     else:
         st.write("⏳ Enter a valid time (or range) above to show hourly counts.")
+
 
