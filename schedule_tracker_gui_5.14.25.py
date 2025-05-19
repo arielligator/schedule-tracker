@@ -2,57 +2,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, time
 from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
-from zoneinfo import ZoneInfo
-import os, time
-
 
 st.set_page_config(
     layout="wide",
     page_title="Schedule Tracker",
     page_icon="📅",
 )
-
-# force the whole process to treat “local” as America/New_York
-os.environ['TZ'] = 'America/New_York'
-time.tzset()
-
-# ============================================================================
-# PASSWORD PROTECTION
-
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "password_tried" not in st.session_state:
-        st.session_state["password_tried"] = False
-
-    with st.sidebar.form(key="login_form"):
-        st.text('Enter the password!')
-        password = st.text_input("Password:", type="password")
-        submitted = st.form_submit_button("Login")
-
-    if submitted:
-        if password == st.secrets["auth"]["password"]:
-            st.session_state["authenticated"] = True
-        else:
-            st.session_state["password_tried"] = True
-            st.session_state["authenticated"] = False
-
-    if st.session_state["authenticated"]:
-        st.sidebar.success("Access Granted")
-        return True
-    elif st.session_state["password_tried"]:
-        st.sidebar.error("Incorrect password. Try again.")
-        return False
-    else:
-        return False
-
-if not check_password():
-    st.stop()
-
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -99,11 +58,11 @@ dynamic = DynamicFilters(
 # CONTAINERS / LAYOUT
 header = st.container()
 filters = st.container()
-data, counter = st.columns([5,1])
+data = st.container()
 count = st.container()
 
 with header:
-    st.title('LIT Schedule Tracker')
+    st.title('LIT Schedule Tracker 5.14')
 
 # ============================================================================
 # UI FILTERS (Five-column layout)
@@ -239,22 +198,18 @@ elif mode == "Custom Time":
         t = parse_time(st.session_state.get('custom_time_txt', '12:00'))
         filtered_df = filtered_df[
             (filtered_df['Start Time'].apply(parse_time) <= t) &
-            (filtered_df['End Time'].apply(parse_time)   > t)
+            (filtered_df['End Time'].apply(parse_time)   >= t)
         ]
 elif mode == "Custom Time Range":
     start_txt = st.session_state.get("start_txt", "")
     end_txt   = st.session_state.get("end_txt", "")
     if start_txt and end_txt:
-        s = parse_time(start_txt)
-        e = parse_time(end_txt)
-        if e < s:
-            st.error("End time must be ≥ start time.")
-        else:
-            st.success(f"Range: **{s.strftime('%I:%M %p').lstrip('0')}** – **{e.strftime('%I:%M %p').lstrip('0')}**")
-            # keep rows whose shift_start ≤ filter_end  AND  shift_end ≥ filter_start
+        s = parse_time(st.session_state.get('start_txt', '09:00'))
+        e = parse_time(st.session_state.get('end_txt', '17:00'))
+        if e >= s:
             filtered_df = filtered_df[
-                (filtered_df['Start Time'].apply(parse_time) <= e) &
-                (filtered_df['End Time'].apply(parse_time)   > s)
+                (filtered_df['Start Time'].apply(parse_time) >= s) &
+                (filtered_df['End Time'].apply(parse_time)   <= e)
             ]
 
 # ============================================================================
@@ -278,77 +233,3 @@ with data:
 
 with count:
     st.text(f"Total rows: {len(filtered_df)}")
-
-#----------------------------------------------------------------------------
-# EXTRACT COUNTS AND RENDER DATA
-
-with counter:
-    # ——————————————————————————————
-    # 0️⃣ First, apply all your other filters (Name/Team/Location/Day) but skip Time
-    #    (if you’re using streamlit_dynamic_filters; otherwise replace with your own filtering logic)
-    filtered_df = dynamic.filter_df(except_filter="Time of Day")
-
-    # ——————————————————————————————
-    # 1️⃣ Decide which hour(s) to plot
-    mode = st.session_state.get("time_mode", "All")
-
-    if mode == "Now":
-        now = datetime.now().time()
-        hours_to_plot = [now.hour]
-
-    elif mode == "Custom Time":
-        txt = st.session_state.get("custom_time_txt", "")
-        if txt:
-            try:
-                t = parse_time(txt)        # naive time, but frame is already Eastern
-                hours_to_plot = [t.hour]
-            except ValueError:
-                hours_to_plot = []
-        else:
-            hours_to_plot = []
-
-    elif mode == "Custom Time Range":
-        start_txt = st.session_state.get("start_txt", "")
-        end_txt   = st.session_state.get("end_txt", "")
-        if start_txt and end_txt:
-            try:
-                s = parse_time(start_txt)
-                e = parse_time(end_txt)
-                hours_to_plot = list(range(s.hour, e.hour))
-            except ValueError:
-                hours_to_plot = []
-        else:
-            hours_to_plot = []
-
-    else:  # “All”
-        hours_to_plot = list(range(24))
-
-    # ——————————————————————————————
-    # 2️⃣ Count “on duty” per hour (all comparisons now between ints)
-    if hours_to_plot:
-        # Extract integer hours from your Eastern‐time strings
-        filtered_df["start_hour"] = filtered_df["Start Time"].apply(lambda s: parse_time(s).hour)
-        filtered_df["end_hour"]   = filtered_df["End Time"].  apply(lambda s: parse_time(s).hour)
-
-        counts = [
-            ((filtered_df["start_hour"] <= h) & (filtered_df["end_hour"] > h)).sum()
-            for h in hours_to_plot
-        ]
-        counts_by_hour = pd.Series(counts, index=hours_to_plot, name="Employee Count")
-
-        # 3️⃣ Format labels like “9am–10am”
-        def fmt_hour(h):
-            suffix = "am" if h < 12 else "pm"
-            hour   = h % 12 or 12
-            return f"{hour}{suffix}"
-        def fmt_range(h):
-            return f"{fmt_hour(h)}–{fmt_hour((h+1)%24)}"
-
-        # 4️⃣ Build and display the table
-        df_counts = counts_by_hour.to_frame().rename_axis("Hour Range")
-        df_counts.index = df_counts.index.map(fmt_range)
-        st.dataframe(df_counts, use_container_width=True)
-    else:
-        st.write("⏳ Enter a valid time (or range) above to show hourly counts.")
-
-
