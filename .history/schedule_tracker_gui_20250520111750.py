@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime, time
+from datetime import datetime
 from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
@@ -24,35 +24,35 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "password_tried" not in st.session_state:
-        st.session_state["password_tried"] = False
+# def check_password():
+#     if "authenticated" not in st.session_state:
+#         st.session_state["authenticated"] = False
+#     if "password_tried" not in st.session_state:
+#         st.session_state["password_tried"] = False
 
-    with st.sidebar.form(key="login_form"):
-        st.text('Enter the password!')
-        password = st.text_input("Password:", type="password")
-        submitted = st.form_submit_button("Login")
+#     with st.sidebar.form(key="login_form"):
+#         st.text('Enter the password!')
+#         password = st.text_input("Password:", type="password")
+#         submitted = st.form_submit_button("Login")
 
-    if submitted:
-        if password == st.secrets["auth"]["password"]:
-            st.session_state["authenticated"] = True
-        else:
-            st.session_state["password_tried"] = True
-            st.session_state["authenticated"] = False
+#     if submitted:
+#         if password == st.secrets["auth"]["password"]:
+#             st.session_state["authenticated"] = True
+#         else:
+#             st.session_state["password_tried"] = True
+#             st.session_state["authenticated"] = False
 
-    if st.session_state["authenticated"]:
-        st.sidebar.success("Access Granted")
-        return True
-    elif st.session_state["password_tried"]:
-        st.sidebar.error("Incorrect password. Try again.")
-        return False
-    else:
-        return False
+#     if st.session_state["authenticated"]:
+#         st.sidebar.success("Access Granted")
+#         return True
+#     elif st.session_state["password_tried"]:
+#         st.sidebar.error("Incorrect password. Try again.")
+#         return False
+#     else:
+#         return False
 
-if not check_password():
-    st.stop()
+# if not check_password():
+#     st.stop()
 
 
 # ============================================================================
@@ -94,24 +94,6 @@ def on_duty(start: time, end: time, t: time) -> bool:
     # overnight shift (e.g. 10pm–6am)
     return t >= start or t < end
 
-def interval_overlaps(start1: time, end1: time, start2: time, end2: time) -> bool:
-    """Return True if [start1→end1) overlaps [start2→end2), 
-       where either interval may wrap past midnight."""
-    def to_minutes(t):
-        return t.hour*60 + t.minute
-    s1, e1 = to_minutes(start1), to_minutes(end1)
-    s2, e2 = to_minutes(start2), to_minutes(end2)
-
-    # break a wrap-around interval into two linear segments
-    segs1 = [(s1, e1)] if s1 < e1 else [(s1, 24*60), (0, e1)]
-    segs2 = [(s2, e2)] if s2 < e2 else [(s2, 24*60), (0, e2)]
-
-    # standard overlap test on any pair of segments
-    for a0, a1 in segs1:
-        for b0, b1 in segs2:
-            if a0 < b1 and b0 < a1:
-                return True
-    return False
 
 # ============================================================================
 # SET UP DYNAMIC FILTERS
@@ -270,45 +252,29 @@ if mode == "Now":
             axis=1
         )
     ]
-    st.write(f"Current Time: {now.strftime('%I:%M %p').lstrip('0')}")
-
+    st.write(f"Current Time: {now.strftime('%I:%M %p')}")
 elif mode == "Custom Time":
     txt = st.session_state.get("custom_time_txt", "")
-    if txt:
-        t = parse_time(txt)
-        df_base = dynamic.filter_df(except_filter="Time of Day")
-        filtered_df = df_base[
-            df_base.apply(lambda row: on_duty(
-                parse_time(row["Start Time"]),
-                parse_time(row["End Time"]),
-                t
-            ), axis=1)
+    if txt:  # only parse if non‐empty
+        t = parse_time(st.session_state.get('custom_time_txt', '12:00'))
+        filtered_df = filtered_df[
+            (filtered_df['Start Time'].apply(parse_time) <= t) &
+            (filtered_df['End Time'].apply(parse_time)   > t)
         ]
-        st.success(f"✔ Parsed time: **{t.strftime('%I:%M %p').lstrip('0')}**")
-
 elif mode == "Custom Time Range":
     start_txt = st.session_state.get("start_txt", "")
     end_txt   = st.session_state.get("end_txt", "")
     if start_txt and end_txt:
         s = parse_time(start_txt)
         e = parse_time(end_txt)
-        if e < s and not True:
+        if e < s:
             st.error("End time must be ≥ start time.")
         else:
             st.success(f"Range: **{s.strftime('%I:%M %p').lstrip('0')}** – **{e.strftime('%I:%M %p').lstrip('0')}**")
-
-            df_base = dynamic.filter_df()
-
             # keep rows whose shift_start ≤ filter_end  AND  shift_end ≥ filter_start
-            filtered_df = df_base[
-                df_base.apply(
-                    lambda row: interval_overlaps(
-                        parse_time(row["Start Time"]),
-                        parse_time(row["End Time"]),
-                        s, e
-                    ),
-                    axis=1
-                )
+            filtered_df = filtered_df[
+                (filtered_df['Start Time'].apply(parse_time) <= e) &
+                (filtered_df['End Time'].apply(parse_time)   > s)
             ]
 
 # ============================================================================
@@ -337,57 +303,29 @@ with count:
 # EXTRACT COUNTS AND RENDER DATA
 
 #DEBUGGING
-# with counter:
-    
-#     # re-apply filters (skip Time)
-#     df_dbg = filtered_df
-
-#     # compute your hours
-#     df_dbg["start_hour"] = df_dbg["Start Time"].apply(lambda s: parse_time(s).hour)
-#     df_dbg["end_hour"]   = df_dbg["End Time"].  apply(lambda s: parse_time(s).hour)
-
-#     # ▸ DEBUG: show only the raw times + hours
-#     st.dataframe(
-#         df_dbg[["Start Time","End Time","start_hour","end_hour"]],
-#         use_container_width=True
-#     )
-
-
-
-from datetime import time
-
-def interval_overlaps(start1: time, end1: time, start2: time, end2: time) -> bool:
-    """Return True if [start1→end1) overlaps [start2→end2), 
-       where either interval may wrap past midnight."""
-    def to_minutes(t):
-        return t.hour * 60 + t.minute
-
-    s1, e1 = to_minutes(start1), to_minutes(end1)
-    s2, e2 = to_minutes(start2), to_minutes(end2)
-
-    # break-wrap intervals into linear segments
-    segs1 = [(s1, e1)] if s1 < e1 else [(s1, 24*60), (0, e1)]
-    segs2 = [(s2, e2)] if s2 < e2 else [(s2, 24*60), (0, e2)]
-
-    # test any pair for overlap
-    for a0, a1 in segs1:
-        for b0, b1 in segs2:
-            if a0 < b1 and b0 < a1:
-                return True
-    return False
-
-
-# TIME RANGE COUNTER
 with counter:
-    # ① base DataFrame (all filters except time)
-    df_base = dynamic.filter_df()
-    mode = st.session_state.get("time_mode", "All")
-    hours_to_plot = []
-
-    if mode == "Now":
-        t = datetime.now().time()
-        hours_to_plot = [t.hour]
     
+    # re-apply filters (skip Time)
+    df_dbg = dynamic.filter_df()
+
+    # compute your hours
+    df_dbg["start_hour"] = df_dbg["Start Time"].apply(lambda s: parse_time(s).hour)
+    df_dbg["end_hour"]   = df_dbg["End Time"].  apply(lambda s: parse_time(s).hour)
+
+    # ▸ DEBUG: show only the raw times + hours
+    st.dataframe(
+        df_dbg[["Start Time","End Time","start_hour","end_hour"]],
+        use_container_width=True
+    )
+
+
+# TIME COUNTER
+with counter:
+    # 1️⃣ Determine hours_to_plot (as before)
+    mode = st.session_state.get("time_mode", "All")
+    if mode == "Now":
+        now = datetime.now().time()
+        hours_to_plot = [now.hour]
     elif mode == "Custom Time":
         txt = st.session_state.get("custom_time_txt", "")
         if txt:
@@ -396,10 +334,11 @@ with counter:
                 hours_to_plot = [t.hour]
             except ValueError:
                 hours_to_plot = []
-    
+        else:
+            hours_to_plot = []
     elif mode == "Custom Time Range":
         start_txt = st.session_state.get("start_txt", "")
-        end_txt = st.session_state.get("end_txt", "")
+        end_txt   = st.session_state.get("end_txt", "")
         if start_txt and end_txt:
             try:
                 s = parse_time(start_txt)
@@ -407,128 +346,108 @@ with counter:
                 hours_to_plot = list(range(s.hour, e.hour))
             except ValueError:
                 hours_to_plot = []
-    
-    else: # All
+        else:
+            hours_to_plot = []
+    else:
         hours_to_plot = list(range(24))
-    
-    # if nothing valid, bail out
-    # if not hours_to_plot:
-    #     st.write("Enter a valid time (or range) above.")
-    #     return
 
-    # build counts and labels only for filtered hours
-    counts = []
-    labels = []
-    for h in hours_to_plot:
-        window_start = time(h, 0)
-        window_end   = time((h + 1) % 24, 0)
+    # 2️⃣ Compute counts for those hours
+    if hours_to_plot:
+        filtered_df['start_hour'] = filtered_df['Start Time'].apply(lambda s: parse_time(s).hour)
+        filtered_df['end_hour']   = filtered_df['End Time'].  apply(lambda s: parse_time(s).hour)
 
-        # count overlaps in [h:00 → h+1:00)
-        c = df_base.apply(
-            lambda row: interval_overlaps(
-                parse_time(row["Start Time"]),
-                parse_time(row["End Time"]),
-                window_start,
-                window_end
-            ),
-            axis=1
-        ).sum()
+        counts = [
+            ((filtered_df['start_hour'] <= h) & (filtered_df['end_hour'] > h)).sum()
+            for h in hours_to_plot
+        ]
+        counts_by_hour = pd.Series(counts, index=hours_to_plot, name='Count')
 
-        counts.append(c)
+        # 3️⃣ Map each integer hour to "9 am", "10 am", etc.
+        def fmt_label(h: int) -> str:
+            suffix = 'am' if h < 12 else 'pm'
+            hour   = h % 12 or 12
+            return f"{hour} {suffix}"
 
-        # build the label without %-flags
-        start_label = window_start.strftime('%I %p').lstrip('0')
-        end_label   = window_end.strftime(  '%I %p').lstrip('0')
-        labels.append(f"{start_label}–{end_label}")
+        df_counts = counts_by_hour.to_frame().rename_axis("Hour")
+        df_counts.index = df_counts.index.map(fmt_label)
 
-    # ③ assemble and display
-    df_ranges = (
-        pd.Series(counts, index=labels, name="Count")
-          .to_frame()
-          .rename_axis("Hour Range")
-    )
-    st.dataframe(df_ranges, use_container_width=True)
-    
+        # 4️⃣ Display the table
+        st.dataframe(df_counts, use_container_width=True)
+
+    else:
+        st.write("⏳ Enter a valid time (or range) above to show hourly counts.")
 
 
 
-# Counter version that counts by hour (i.e. 9am, 10am, etc. instead of ranges)
-# # TIME COUNTER
-# with counter:
-#     # 0️⃣  Apply Name/Team/Location/Weekday filters only
-#     df_base = dynamic.filter_df(except_filter="Time of Day")
+# TIME RANGE COUNTER
+with counter:
 
-#     # 1️⃣  Decide mode, initialize
-#     mode = st.session_state.get("time_mode", "All")
-#     hours_to_plot = []
-#     t = None
+    # ——————————————————————————————
+    # 0️⃣ First, apply all your other filters (Name/Team/Location/Day) but skip Time
+    #    (if you’re using streamlit_dynamic_filters; otherwise replace with your own filtering logic)
+    filtered_df = dynamic.filter_df()
 
-#     if mode == "Now":
-#         t = datetime.now().time()
-#         hours_to_plot = [t.hour]
+    # ——————————————————————————————
+    # 1️⃣ Decide which hour(s) to plot
+    mode = st.session_state.get("time_mode", "All")
 
-#     elif mode == "Custom Time":
-#         txt = st.session_state.get("custom_time_txt", "")
-#         if txt:
-#             try:
-#                 t = parse_time(txt)
-#                 hours_to_plot = [t.hour]
-#             except ValueError:
-#                 hours_to_plot = []
+    if mode == "Now":
+        now = datetime.now().time()
+        hours_to_plot = [now.hour]
 
-#     elif mode == "Custom Time Range":
-#         start_txt = st.session_state.get("start_txt", "")
-#         end_txt   = st.session_state.get("end_txt", "")
-#         if start_txt and end_txt:
-#             try:
-#                 s = parse_time(start_txt)
-#                 e = parse_time(end_txt)
-#                 hours_to_plot = list(range(s.hour, e.hour))
-#             except ValueError:
-#                 hours_to_plot = []
+    elif mode == "Custom Time":
+        txt = st.session_state.get("custom_time_txt", "")
+        if txt:
+            try:
+                t = parse_time(txt)        # naive time, but frame is already Eastern
+                hours_to_plot = [t.hour]
+            except ValueError:
+                hours_to_plot = []
+        else:
+            hours_to_plot = []
 
-#     else:  # “All”
-#         hours_to_plot = list(range(24))
+    elif mode == "Custom Time Range":
+        start_txt = st.session_state.get("start_txt", "")
+        end_txt   = st.session_state.get("end_txt", "")
+        if start_txt and end_txt:
+            try:
+                s = parse_time(start_txt)
+                e = parse_time(end_txt)
+                hours_to_plot = list(range(s.hour, e.hour))
+            except ValueError:
+                hours_to_plot = []
+        else:
+            hours_to_plot = []
 
-#     # 2️⃣  Build & show hourly‐counts table
-#     if hours_to_plot:
-#         counts = []
-#         for h in hours_to_plot:
-#             hr_start = time(h, 0)
-#             hr_end   = time((h + 1) % 24, 0)
-#             c = df_base.apply(
-#                 lambda row: interval_overlaps(
-#                     parse_time(row["Start Time"]),
-#                     parse_time(row["End Time"]),
-#                     hr_start,
-#                     hr_end
-#                 ),
-#                 axis=1
-#             ).sum()
-#             counts.append(c)
+    else:  # “All”
+        hours_to_plot = list(range(24))
 
-#         ser = pd.Series(counts, index=hours_to_plot, name="Count")
-#         def fmt_label(h):
-#             suffix = "am" if h < 12 else "pm"
-#             hh = h % 12 or 12
-#             return f"{hh} {suffix}"
+    # ——————————————————————————————
+    # 2️⃣ Count “on duty” per hour (all comparisons now between ints)
+    if hours_to_plot:
+        # Extract integer hours from your Eastern‐time strings
+        filtered_df["start_hour"] = filtered_df["Start Time"].apply(lambda s: parse_time(s).hour)
+        filtered_df["end_hour"]   = filtered_df["End Time"].  apply(lambda s: parse_time(s).hour)
 
-#         df_counts = ser.to_frame().rename_axis("Hour")
-#         df_counts.index = df_counts.index.map(fmt_label)
-#         st.dataframe(df_counts, use_container_width=True)
-#     else:
-#         st.write("⏳ Enter a valid time (or range) above to show hourly counts.")
+        counts = [
+            ((filtered_df["start_hour"] <= h) & (filtered_df["end_hour"] > h)).sum()
+            for h in hours_to_plot
+        ]
+        counts_by_hour = pd.Series(counts, index=hours_to_plot, name="Employee Count")
 
-#     # 3️⃣  If we picked a single time, print the “On duty at …” line
-#     if t is not None:
-#         on_now = df_base.apply(
-#             lambda row: interval_overlaps(
-#                 parse_time(row["Start Time"]),
-#                 parse_time(row["End Time"]),
-#                 t, time((t.hour + 1) % 24, 0)
-#             ),
-#             axis=1
-#         ).sum()
-#         st.text(f"On duty at {t.strftime('%I:%M %p').lstrip('0')}: {on_now}")
+        # 3️⃣ Format labels like “9am–10am”
+        def fmt_hour(h):
+            suffix = "am" if h < 12 else "pm"
+            hour   = h % 12 or 12
+            return f"{hour}{suffix}"
+        def fmt_range(h):
+            return f"{fmt_hour(h)}–{fmt_hour((h+1)%24)}"
+
+        # 4️⃣ Build and display the table
+        df_counts = counts_by_hour.to_frame().rename_axis("Hour Range")
+        df_counts.index = df_counts.index.map(fmt_range)
+        st.dataframe(df_counts, use_container_width=True)
+    else:
+        st.write("⏳ Enter a valid time (or range) above to show hourly counts.")
 
 

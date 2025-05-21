@@ -24,35 +24,35 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "password_tried" not in st.session_state:
-        st.session_state["password_tried"] = False
+# def check_password():
+#     if "authenticated" not in st.session_state:
+#         st.session_state["authenticated"] = False
+#     if "password_tried" not in st.session_state:
+#         st.session_state["password_tried"] = False
 
-    with st.sidebar.form(key="login_form"):
-        st.text('Enter the password!')
-        password = st.text_input("Password:", type="password")
-        submitted = st.form_submit_button("Login")
+#     with st.sidebar.form(key="login_form"):
+#         st.text('Enter the password!')
+#         password = st.text_input("Password:", type="password")
+#         submitted = st.form_submit_button("Login")
 
-    if submitted:
-        if password == st.secrets["auth"]["password"]:
-            st.session_state["authenticated"] = True
-        else:
-            st.session_state["password_tried"] = True
-            st.session_state["authenticated"] = False
+#     if submitted:
+#         if password == st.secrets["auth"]["password"]:
+#             st.session_state["authenticated"] = True
+#         else:
+#             st.session_state["password_tried"] = True
+#             st.session_state["authenticated"] = False
 
-    if st.session_state["authenticated"]:
-        st.sidebar.success("Access Granted")
-        return True
-    elif st.session_state["password_tried"]:
-        st.sidebar.error("Incorrect password. Try again.")
-        return False
-    else:
-        return False
+#     if st.session_state["authenticated"]:
+#         st.sidebar.success("Access Granted")
+#         return True
+#     elif st.session_state["password_tried"]:
+#         st.sidebar.error("Incorrect password. Try again.")
+#         return False
+#     else:
+#         return False
 
-if not check_password():
-    st.stop()
+# if not check_password():
+#     st.stop()
 
 
 # ============================================================================
@@ -382,44 +382,13 @@ with counter:
     # ① base DataFrame (all filters except time)
     df_base = dynamic.filter_df()
     mode = st.session_state.get("time_mode", "All")
-    hours_to_plot = []
+    
 
-    if mode == "Now":
-        t = datetime.now().time()
-        hours_to_plot = [t.hour]
-    
-    elif mode == "Custom Time":
-        txt = st.session_state.get("custom_time_txt", "")
-        if txt:
-            try:
-                t = parse_time(txt)
-                hours_to_plot = [t.hour]
-            except ValueError:
-                hours_to_plot = []
-    
-    elif mode == "Custom Time Range":
-        start_txt = st.session_state.get("start_txt", "")
-        end_txt = st.session_state.get("end_txt", "")
-        if start_txt and end_txt:
-            try:
-                s = parse_time(start_txt)
-                e = parse_time(end_txt)
-                hours_to_plot = list(range(s.hour, e.hour))
-            except ValueError:
-                hours_to_plot = []
-    
-    else: # All
-        hours_to_plot = list(range(24))
-    
-    # if nothing valid, bail out
-    # if not hours_to_plot:
-    #     st.write("Enter a valid time (or range) above.")
-    #     return
-
-    # build counts and labels only for filtered hours
+    # ② prepare hours and counts
+    hours  = list(range(24))
     counts = []
     labels = []
-    for h in hours_to_plot:
+    for h in hours:
         window_start = time(h, 0)
         window_end   = time((h + 1) % 24, 0)
 
@@ -435,7 +404,6 @@ with counter:
         ).sum()
 
         counts.append(c)
-
         # build the label without %-flags
         start_label = window_start.strftime('%I %p').lstrip('0')
         end_label   = window_end.strftime(  '%I %p').lstrip('0')
