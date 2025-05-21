@@ -125,14 +125,16 @@ MM2 = {
 rows.append(MM2)
 
 # Handle rotating schedules
-for row in rows:
-    shift = row.get("Shift", "")
-    if "Rotating" in shift:
-        rotating_suffix = extract_parentheses(shift)
-        rotating_prefix = shift.replace(rotating_suffix, "").strip()
-        row['Name'] = f'{row['Name']} ({rotating_suffix})'
-        row['Shift'] = rotating_prefix
-        row['Work Day Range'] = 'Monday - Saturday'
+if any("Rotating" in r.get("Shift", "") for r in rows):
+    CP = next(row for row in rows if st.secrets["name"]["name3"] in row['Name'])
+    CP['Name'] = st.secrets["name"]["name3"] + ' (Rotating Days/Week)'
+    CP['Shift'] = '6:00am - 6:30pm'
+    CP['Work Day Range'] = 'Monday - Saturday'
+
+    kroud = next(row for row in rows if 'Konstantinos Roudas' in row['Name'])
+    kroud['Name'] = 'Konstantinos Roudas'
+    kroud['Shift'] = '7:00am - 3:30pm'
+    kroud['Work Day Range'] = 'Monday - Saturday'
 
 #============================================================================================================================================
 # EXTRACT START/END TIMES FROM SHIFT

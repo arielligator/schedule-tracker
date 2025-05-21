@@ -134,6 +134,16 @@ for row in rows:
         row['Shift'] = rotating_prefix
         row['Work Day Range'] = 'Monday - Saturday'
 
+    # CP = next(row for row in rows if st.secrets["name"]["name3"] in row['Name'])
+    # CP['Name'] = st.secrets["name"]["name3"] + ' (Rotating Days/Week)'
+    # CP['Shift'] = '6:00am - 6:30pm'
+    # CP['Work Day Range'] = 'Monday - Saturday'
+
+    # kroud = next(row for row in rows if st.secrets["name"]["name4"] in row['Name'])
+    # kroud['Name'] = st.secrets["name"]["name4"] + ' (Rotating Days/Week)'
+    # kroud['Shift'] = '7:00am - 3:30pm'
+    # kroud['Work Day Range'] = 'Monday - Saturday'
+
 #============================================================================================================================================
 # EXTRACT START/END TIMES FROM SHIFT
 

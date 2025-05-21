@@ -105,13 +105,13 @@ KB['Shift'] = '8:30am - 5:30pm'
 #KB is row 49
 
 # Handle MM
-MM = next(row for row in rows if st.secrets["name"]["name2"] in row['Name'])
-MM['Shift'] = '8:00am - 5:30pm'
-MM['Work Day Range'] = 'Monday - Thursday'
+marcos = next(row for row in rows if st.secrets["name"]["name12"] in row['Name'])
+marcos['Shift'] = '8:00am - 5:30pm'
+marcos['Work Day Range'] = 'Monday - Thursday'
 
-MM2 = {
+marcos2 = {
     'Team': 'MGE',
-    'Name': st.secrets["name"]["name2"],
+    'Name': 'Marcos Mendez',
     'Shift': '8:00am - 12:00pm',
     'Lunch': '',
     'Location': 'NYC',
@@ -122,17 +122,19 @@ MM2 = {
     'Work Dates': ''
 }
 
-rows.append(MM2)
+rows.append(marcos2)
 
 # Handle rotating schedules
-for row in rows:
-    shift = row.get("Shift", "")
-    if "Rotating" in shift:
-        rotating_suffix = extract_parentheses(shift)
-        rotating_prefix = shift.replace(rotating_suffix, "").strip()
-        row['Name'] = f'{row['Name']} ({rotating_suffix})'
-        row['Shift'] = rotating_prefix
-        row['Work Day Range'] = 'Monday - Saturday'
+if any("Rotating" in r.get("Shift", "") for r in rows):
+    cpour = next(row for row in rows if 'Christopher Poursanidis' in row['Name'])
+    cpour['Name'] = 'Christopher Poursanidis (Rotating Days/Week)'
+    cpour['Shift'] = '6:00am - 6:30pm'
+    cpour['Work Day Range'] = 'Monday - Saturday'
+
+    kroud = next(row for row in rows if 'Konstantinos Roudas' in row['Name'])
+    kroud['Name'] = 'Konstantinos Roudas'
+    kroud['Shift'] = '7:00am - 3:30pm'
+    kroud['Work Day Range'] = 'Monday - Saturday'
 
 #============================================================================================================================================
 # EXTRACT START/END TIMES FROM SHIFT

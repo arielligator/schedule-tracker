@@ -134,6 +134,7 @@ for row in rows:
         row['Shift'] = rotating_prefix
         row['Work Day Range'] = 'Monday - Saturday'
 
+
 #============================================================================================================================================
 # EXTRACT START/END TIMES FROM SHIFT
 
