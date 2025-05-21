@@ -18,7 +18,7 @@ st.set_page_config(
 
 # force the whole process to treat “local” as America/New_York
 os.environ['TZ'] = 'America/New_York'
-time.tzset()
+    time.tzset()
 
 # ============================================================================
 # PASSWORD PROTECTION
