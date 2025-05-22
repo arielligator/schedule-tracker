@@ -28,7 +28,8 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
-cookies = EncryptedCookieManager(password=st.secrets["cookie_auth"]["password"])
+cookies = EncryptedCookieManager(    password=st.secrets["cookie_auth"]["password"]
+)
 
 # check if cookies are reaady
 if not cookies.ready():
