@@ -6,7 +6,6 @@ st.set_page_config(
     page_title="Schedule Tracker",
     page_icon="📅",
 )
-
 from streamlit_cookies_manager import EncryptedCookieManager
 import pandas as pd
 import numpy as np

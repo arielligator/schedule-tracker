@@ -1,11 +1,6 @@
 # IMPORTS/CONFIGS
 import streamlit as st
 
-st.set_page_config(
-    layout="wide",
-    page_title="Schedule Tracker",
-    page_icon="📅",
-)
 
 from streamlit_cookies_manager import EncryptedCookieManager
 import pandas as pd
@@ -18,7 +13,11 @@ from zoneinfo import ZoneInfo
 import os, time
 
 
-
+st.set_page_config(
+    layout="wide",
+    page_title="Schedule Tracker",
+    page_icon="📅",
+)
 
 # force the whole process to treat “local” as America/New_York
 os.environ['TZ'] = 'America/New_York'
