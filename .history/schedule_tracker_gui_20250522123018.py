@@ -39,6 +39,10 @@ def get_cookie_manager():
 
 cookies = get_cookie_manager()
 
+# 🔐 Setup cookies
+cookies = EncryptedCookieManager(password="super-secret-password-change-me")
+if not cookies.ready():
+    st.stop()
 
 # ✅ Handle login
 def check_login():

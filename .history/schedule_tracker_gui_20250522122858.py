@@ -35,10 +35,21 @@ def get_cookie_manager():
     # check if cookies are ready
     if not cookies.ready():
         st.stop()
-    return cookies
 
-cookies = get_cookie_manager()
+import streamlit as st
+from streamlit_cookies_manager import EncryptedCookieManager
 
+# ✅ Must be the first Streamlit command
+st.set_page_config(
+    layout="wide",
+    page_title="Schedule Tracker",
+    page_icon="📅",
+)
+
+# 🔐 Setup cookies
+cookies = EncryptedCookieManager(password="super-secret-password-change-me")
+if not cookies.ready():
+    st.stop()
 
 # ✅ Handle login
 def check_login():

@@ -7,7 +7,7 @@ st.set_page_config(
     page_icon="📅",
 )
 
-
+from streamlit_cookies_manager import EncryptedCookieManager
 import pandas as pd
 import numpy as np
 from datetime import datetime, time
@@ -30,15 +30,28 @@ if hasattr(time, "tzset"):
 
 @st.cache_resource
 def get_cookie_manager():
-    from streamlit_cookies_manager import EncryptedCookieManager
-    cookies = EncryptedCookieManager(password=st.secrets["cookie_auth"]["password"])
-    # check if cookies are ready
-    if not cookies.ready():
-        st.stop()
-    return cookies
+    from streamlit
 
-cookies = get_cookie_manager()
+cookies = EncryptedCookieManager(password=st.secrets["cookie_auth"]["password"])
 
+# check if cookies are reaady
+if not cookies.ready():
+    st.stop()
+
+import streamlit as st
+from streamlit_cookies_manager import EncryptedCookieManager
+
+# ✅ Must be the first Streamlit command
+st.set_page_config(
+    layout="wide",
+    page_title="Schedule Tracker",
+    page_icon="📅",
+)
+
+# 🔐 Setup cookies
+cookies = EncryptedCookieManager(password="super-secret-password-change-me")
+if not cookies.ready():
+    st.stop()
 
 # ✅ Handle login
 def check_login():

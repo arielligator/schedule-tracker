@@ -40,6 +40,18 @@ def get_cookie_manager():
 cookies = get_cookie_manager()
 
 
+# ✅ Must be the first Streamlit command
+st.set_page_config(
+    layout="wide",
+    page_title="Schedule Tracker",
+    page_icon="📅",
+)
+
+# 🔐 Setup cookies
+cookies = EncryptedCookieManager(password="super-secret-password-change-me")
+if not cookies.ready():
+    st.stop()
+
 # ✅ Handle login
 def check_login():
     if cookies.get("auth") == "true":
