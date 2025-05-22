@@ -1,5 +1,13 @@
 # IMPORTS/CONFIGS
 import streamlit as st
+
+st.set_page_config(
+    layout="wide",
+    page_title="Schedule Tracker",
+    page_icon="📅",
+)
+
+from streamlit_cookies_manager import EncryptedCookieManager
 import pandas as pd
 import numpy as np
 from datetime import datetime, time
@@ -10,11 +18,7 @@ from zoneinfo import ZoneInfo
 import os, time
 
 
-st.set_page_config(
-    layout="wide",
-    page_title="Schedule Tracker",
-    page_icon="📅",
-)
+
 
 # force the whole process to treat “local” as America/New_York
 os.environ['TZ'] = 'America/New_York'
@@ -24,7 +28,19 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
+cookies = EncryptedCookieManager(
+    prefix="auth_", # cookies are stored as auth_xxx
+    password=st.secrets["cookie_auth"]["password"]
+)
+
+# check if cookies are reaady
+if not cookies.ready():
+    st.stop()
+
 def check_password():
+    if cookies.get("authenticated") == "true":
+        return True
+    
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if "password_tried" not in st.session_state:

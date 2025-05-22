@@ -1,5 +1,13 @@
 # IMPORTS/CONFIGS
 import streamlit as st
+
+st.set_page_config(
+    layout="wide",
+    page_title="Schedule Tracker",
+    page_icon="📅",
+)
+
+
 import pandas as pd
 import numpy as np
 from datetime import datetime, time
@@ -10,11 +18,7 @@ from zoneinfo import ZoneInfo
 import os, time
 
 
-st.set_page_config(
-    layout="wide",
-    page_title="Schedule Tracker",
-    page_icon="📅",
-)
+
 
 # force the whole process to treat “local” as America/New_York
 os.environ['TZ'] = 'America/New_York'
@@ -24,35 +28,92 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "password_tried" not in st.session_state:
-        st.session_state["password_tried"] = False
+@st.cache_resource
+def get_cookie_manager():
+    from streamlit_cookies_manager import EncryptedCookieManager
+    cookies = EncryptedCookieManager(password=st.secrets["cookie_auth"]["password"])
+    # check if cookies are ready
 
-    with st.sidebar.form(key="login_form"):
-        st.text('Enter the password!')
-        password = st.text_input("Password:", type="password")
+
+cookies = get_cookie_manager()
+
+    if not cookies.ready():
+        st.stop()
+    return cookies
+
+# ✅ Handle login
+def check_login():
+    if cookies.get("auth") == "true":
+        return True
+
+    with st.sidebar.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Login")
+
+    # Suppress Chrome's strong password popup
+    st.markdown("""
+        <script>
+        const pw = window.parent.document.querySelector('input[type="password"]');
+        if (pw) pw.setAttribute('autocomplete', 'current-password');
+        const un = window.parent.document.querySelector('input[type="text"]');
+        if (un) un.setAttribute('autocomplete', 'username');
+        </script>
+    """, unsafe_allow_html=True)
 
     if submitted:
         if password == st.secrets["auth"]["password"]:
-            st.session_state["authenticated"] = True
+            cookies.set("auth", "true")
+            cookies.save()
+            st.experimental_rerun()
         else:
-            st.session_state["password_tried"] = True
-            st.session_state["authenticated"] = False
+            st.sidebar.error("Incorrect password")
 
-    if st.session_state["authenticated"]:
-        st.sidebar.success("Access Granted")
-        return True
-    elif st.session_state["password_tried"]:
-        st.sidebar.error("Incorrect password. Try again.")
-        return False
-    else:
-        return False
+    return False
 
-if not check_password():
+# 🔐 Block app if not logged in
+if not check_login():
     st.stop()
+
+# ✅ Logged-in area
+st.sidebar.success("You are logged in.")
+if st.sidebar.button("Logout"):
+    cookies.delete("auth")
+    cookies.save()
+    st.experimental_rerun()
+
+# def check_password():
+#     if cookies.get("authenticated") == "true":
+#         return True
+    
+#     if "authenticated" not in st.session_state:
+#         st.session_state["authenticated"] = False
+#     if "password_tried" not in st.session_state:
+#         st.session_state["password_tried"] = False
+
+#     with st.sidebar.form(key="login_form"):
+#         st.text('Enter the password!')
+#         password = st.text_input("Password:", type="password")
+#         submitted = st.form_submit_button("Login")
+
+#     if submitted:
+#         if password == st.secrets["auth"]["password"]:
+#             st.session_state["authenticated"] = True
+#         else:
+#             st.session_state["password_tried"] = True
+#             st.session_state["authenticated"] = False
+
+#     if st.session_state["authenticated"]:
+#         st.sidebar.success("Access Granted")
+#         return True
+#     elif st.session_state["password_tried"]:
+#         st.sidebar.error("Incorrect password. Try again.")
+#         return False
+#     else:
+#         return False
+
+# if not check_password():
+#     st.stop()
 
 
 # ============================================================================
