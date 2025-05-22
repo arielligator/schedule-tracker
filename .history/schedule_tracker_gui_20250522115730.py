@@ -33,9 +33,7 @@ cookies = EncryptedCookieManager(
 cookies.load()
 
 def check_password():
-    if cookies.get("authenticated") == "true":
-        return True
-    
+    if cookies.get("authenticated") ==
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if "password_tried" not in st.session_state:

@@ -26,16 +26,10 @@ if hasattr(time, "tzset"):
 # PASSWORD PROTECTION
 
 cookies = EncryptedCookieManager(
-    prefix="auth_", # cookies are stored as auth_xxx
-    password=st.secrets["cookie_auth"]["password"]
+    prefix="auth_"
 )
 
-cookies.load()
-
 def check_password():
-    if cookies.get("authenticated") == "true":
-        return True
-    
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if "password_tried" not in st.session_state:

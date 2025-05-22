@@ -1,6 +1,6 @@
 # IMPORTS/CONFIGS
 import streamlit as st
-from streamlit_cookies_manager import EncryptedCookieManager
+from streamlit
 import pandas as pd
 import numpy as np
 from datetime import datetime, time
@@ -25,17 +25,7 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
-cookies = EncryptedCookieManager(
-    prefix="auth_", # cookies are stored as auth_xxx
-    password=st.secrets["cookie_auth"]["password"]
-)
-
-cookies.load()
-
 def check_password():
-    if cookies.get("authenticated") == "true":
-        return True
-    
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if "password_tried" not in st.session_state:
