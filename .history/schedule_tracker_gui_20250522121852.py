@@ -34,62 +34,6 @@ cookies = EncryptedCookieManager(password=st.secrets["cookie_auth"]["password"])
 if not cookies.ready():
     st.stop()
 
-import streamlit as st
-from streamlit_cookies_manager import EncryptedCookieManager
-
-# ✅ Must be the first Streamlit command
-st.set_page_config(
-    layout="wide",
-    page_title="Schedule Tracker",
-    page_icon="📅",
-)
-
-# 🔐 Setup cookies
-cookies = EncryptedCookieManager(password="super-secret-password-change-me")
-if not cookies.ready():
-    st.stop()
-
-# ✅ Handle login
-def check_login():
-    if cookies.get("auth") == "true":
-        return True
-
-    with st.sidebar.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
-
-    # Suppress Chrome's strong password popup
-    st.markdown("""
-        <script>
-        const pw = window.parent.document.querySelector('input[type="password"]');
-        if (pw) pw.setAttribute('autocomplete', 'current-password');
-        const un = window.parent.document.querySelector('input[type="text"]');
-        if (un) un.setAttribute('autocomplete', 'username');
-        </script>
-    """, unsafe_allow_html=True)
-
-    if submitted:
-        if password == st.secrets["auth"]["password"]:
-            cookies.set("auth", "true")
-            cookies.save()
-            st.experimental_rerun()
-        else:
-            st.sidebar.error("Incorrect password")
-
-    return False
-
-# 🔐 Block app if not logged in
-if not check_login():
-    st.stop()
-
-# ✅ Logged-in area
-st.sidebar.success("You are logged in.")
-if st.sidebar.button("Logout"):
-    cookies.delete("auth")
-    cookies.save()
-    st.experimental_rerun()
-
 # def check_password():
 #     if cookies.get("authenticated") == "true":
 #         return True
