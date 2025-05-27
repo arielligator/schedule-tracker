@@ -348,6 +348,7 @@ with count:
 #----------------------------------------------------------------------------
 # EXTRACT COUNTS AND RENDER DATA
 
+
 from datetime import time
 
 def interval_overlaps(start1: time, end1: time, start2: time, end2: time) -> bool:

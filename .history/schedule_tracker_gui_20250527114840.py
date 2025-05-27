@@ -25,14 +25,14 @@ if hasattr(time, "tzset"):
 # PASSWORD PROTECTION
 
 # Persistent login
-controller = CookieController()
-RemoveEmptyElementContainer()
+# controller = CookieController()
+# RemoveEmptyElementContainer()
 
-login_cookie = st.secrets["cookie_auth"]["password"]
-token = controller.get(login_cookie)
+# login_cookie = st.secrets["cookie_auth"]["password"]
+# token = controller.get(login_cookie)
 
-if token and not st.session_state.get("authenticated", False):
-    st.session_state["authenticated"] = True
+# if token and not st.session_state.get("authenticated", False):
+#     st.session_state["authenticated"] = True
 
 def check_password():
     if "authenticated" not in st.session_state:
@@ -347,6 +347,24 @@ with count:
 
 #----------------------------------------------------------------------------
 # EXTRACT COUNTS AND RENDER DATA
+
+#DEBUGGING
+# with counter:
+    
+#     # re-apply filters (skip Time)
+#     df_dbg = filtered_df
+
+#     # compute your hours
+#     df_dbg["start_hour"] = df_dbg["Start Time"].apply(lambda s: parse_time(s).hour)
+#     df_dbg["end_hour"]   = df_dbg["End Time"].  apply(lambda s: parse_time(s).hour)
+
+#     # ▸ DEBUG: show only the raw times + hours
+#     st.dataframe(
+#         df_dbg[["Start Time","End Time","start_hour","end_hour"]],
+#         use_container_width=True
+#     )
+
+
 
 from datetime import time
 

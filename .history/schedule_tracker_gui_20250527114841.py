@@ -348,6 +348,24 @@ with count:
 #----------------------------------------------------------------------------
 # EXTRACT COUNTS AND RENDER DATA
 
+#DEBUGGING
+# with counter:
+    
+#     # re-apply filters (skip Time)
+#     df_dbg = filtered_df
+
+#     # compute your hours
+#     df_dbg["start_hour"] = df_dbg["Start Time"].apply(lambda s: parse_time(s).hour)
+#     df_dbg["end_hour"]   = df_dbg["End Time"].  apply(lambda s: parse_time(s).hour)
+
+#     # ▸ DEBUG: show only the raw times + hours
+#     st.dataframe(
+#         df_dbg[["Start Time","End Time","start_hour","end_hour"]],
+#         use_container_width=True
+#     )
+
+
+
 from datetime import time
 
 def interval_overlaps(start1: time, end1: time, start2: time, end2: time) -> bool:
