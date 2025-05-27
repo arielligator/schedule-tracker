@@ -25,14 +25,14 @@ if hasattr(time, "tzset"):
 # PASSWORD PROTECTION
 
 # Persistent login
-# controller = CookieController()
-# RemoveEmptyElementContainer()
+controller = CookieController()
+RemoveEmptyElementContainer()
 
-# login_cookie = st.secrets["cookie_auth"]["password"]
-# token = controller.get(login_cookie)
+login_cookie = st.secrets["cookie_auth"]["password"]
+token = controller.get(login_cookie)
 
-# if token and not st.session_state.get("authenticated", False):
-#     st.session_state["authenticated"] = True
+if token and not st.session_state.get("authenticated", False):
+    st.session_state["authenticated"] = True
 
 def check_password():
     if "authenticated" not in st.session_state:
@@ -54,7 +54,7 @@ def check_password():
 
     if st.session_state["authenticated"]:
         # persist a cookie for 14 days
-        # controller.set(login_cookie, "yes", max_age=14*24*60*60)
+        controller.set(login_cookie, "yes", max_age=14*24*60*60)
         st.sidebar.success("Access Granted")
         return True
     elif st.session_state["password_tried"]:

@@ -54,7 +54,7 @@ def check_password():
 
     if st.session_state["authenticated"]:
         # persist a cookie for 14 days
-        # controller.set(login_cookie, "yes", max_age=14*24*60*60)
+        controller.set(login_cookie, "yes", max_age=14*24*60*60)
         st.sidebar.success("Access Granted")
         return True
     elif st.session_state["password_tried"]:
