@@ -1,15 +1,13 @@
 # IMPORTS/CONFIGS
 import streamlit as st
 import pandas as pd
-# import numpy as np
+import numpy as np
 from datetime import datetime, time
 from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
-# from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 import os, time
-from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
-
 
 
 st.set_page_config(
@@ -27,21 +25,9 @@ if hasattr(time, "tzset"):
 # PASSWORD PROTECTION
 
 '''
-successful log in saved as cooke
 check login state cookie
-if not logged in, request password
-otherwise load site
+
 '''
-
-# Persistent login
-controller = CookieController()
-RemoveEmptyElementContainer()
-
-login_cookie = st.secrets["cookie_auth"]["password"]
-token = controller.get(login_cookie)
-
-if token and not st.session_state.get("authenticated", False):
-    st.session_state["authenticated"] = True
 
 def check_password():
     if "authenticated" not in st.session_state:
@@ -62,8 +48,6 @@ def check_password():
             st.session_state["authenticated"] = False
 
     if st.session_state["authenticated"]:
-        # persist a cookie for 14 days
-        controller.set(login_cookie, "yes", max_age=14*24*60*60)
         st.sidebar.success("Access Granted")
         return True
     elif st.session_state["password_tried"]:

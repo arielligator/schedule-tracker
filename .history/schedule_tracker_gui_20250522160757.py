@@ -1,15 +1,13 @@
 # IMPORTS/CONFIGS
 import streamlit as st
 import pandas as pd
-# import numpy as np
+import numpy as np
 from datetime import datetime, time
 from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
-# from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 import os, time
-from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
-
 
 
 st.set_page_config(
@@ -26,54 +24,74 @@ if hasattr(time, "tzset"):
 # ============================================================================
 # PASSWORD PROTECTION
 
-'''
-successful log in saved as cooke
-check login state cookie
-if not logged in, request password
-otherwise load site
-'''
+import extra_streamlit_components as stx
 
-# Persistent login
-controller = CookieController()
-RemoveEmptyElementContainer()
+# Initialize cookie manager
+cookie_manager = stx.CookieManager()
 
-login_cookie = st.secrets["cookie_auth"]["password"]
-token = controller.get(login_cookie)
+# Get existing cookies
+cookies = cookie_manager.get_all()
+is_logged_in = cookies.get("logged_in") == "true"
 
-if token and not st.session_state.get("authenticated", False):
-    st.session_state["authenticated"] = True
+# Login form logic
+def login_form():
+    with st.sidebar.form("login_form"):
+        st.write("🔒 Please log in to continue.")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
 
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "password_tried" not in st.session_state:
-        st.session_state["password_tried"] = False
-
-    with st.sidebar.form(key="login_form"):
-        st.text('Enter the password!')
-        password = st.text_input("Password:", type="password")
-        submitted = st.form_submit_button("Login")
-
-    if submitted:
+    if submit:
         if password == st.secrets["auth"]["password"]:
-            st.session_state["authenticated"] = True
+            cookie_manager.set("logged_in", "true", expires_at="2030-01-01T00:00:00Z")
+            st.experimental_rerun()
         else:
-            st.session_state["password_tried"] = True
-            st.session_state["authenticated"] = False
+            st.sidebar.error("Incorrect password")
 
-    if st.session_state["authenticated"]:
-        # persist a cookie for 14 days
-        controller.set(login_cookie, "yes", max_age=14*24*60*60)
-        st.sidebar.success("Access Granted")
-        return True
-    elif st.session_state["password_tried"]:
-        st.sidebar.error("Incorrect password. Try again.")
-        return False
-    else:
-        return False
+# Logout logic
+def logout():
+    cookie_manager.delete("logged_in")
+    st.experimental_rerun()
 
-if not check_password():
+# Access control
+if not is_logged_in:
+    login_form()
     st.stop()
+else:
+    st.sidebar.success("✅ Logged in")
+    if st.sidebar.button("Logout"):
+        logout()
+
+
+# def check_password():
+#     if "authenticated" not in st.session_state:
+#         st.session_state["authenticated"] = False
+#     if "password_tried" not in st.session_state:
+#         st.session_state["password_tried"] = False
+
+#     with st.sidebar.form(key="login_form"):
+#         st.text('Enter the password!')
+#         password = st.text_input("Password:", type="password")
+#         submitted = st.form_submit_button("Login")
+
+#     if submitted:
+#         if password == st.secrets["auth"]["password"]:
+#             st.session_state["authenticated"] = True
+#         else:
+#             st.session_state["password_tried"] = True
+#             st.session_state["authenticated"] = False
+
+#     if st.session_state["authenticated"]:
+#         st.sidebar.success("Access Granted")
+#         return True
+#     elif st.session_state["password_tried"]:
+#         st.sidebar.error("Incorrect password. Try again.")
+#         return False
+#     else:
+#         return False
+
+# if not check_password():
+#     st.stop()
 
 
 # ============================================================================

@@ -34,14 +34,8 @@ otherwise load site
 '''
 
 # Persistent login
-controller = CookieController()
-RemoveEmptyElementContainer()
-
 login_cookie = st.secrets["cookie_auth"]["password"]
 token = controller.get(login_cookie)
-
-if token and not st.session_state.get("authenticated", False):
-    st.session_state["authenticated"] = True
 
 def check_password():
     if "authenticated" not in st.session_state:

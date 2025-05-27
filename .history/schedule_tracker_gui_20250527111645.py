@@ -33,15 +33,7 @@ if not logged in, request password
 otherwise load site
 '''
 
-# Persistent login
-controller = CookieController()
-RemoveEmptyElementContainer()
 
-login_cookie = st.secrets["cookie_auth"]["password"]
-token = controller.get(login_cookie)
-
-if token and not st.session_state.get("authenticated", False):
-    st.session_state["authenticated"] = True
 
 def check_password():
     if "authenticated" not in st.session_state:
@@ -63,7 +55,7 @@ def check_password():
 
     if st.session_state["authenticated"]:
         # persist a cookie for 14 days
-        controller.set(login_cookie, "yes", max_age=14*24*60*60)
+        controller.set("auth_token", "yes", max_age=14*24*60*60)
         st.sidebar.success("Access Granted")
         return True
     elif st.session_state["password_tried"]:
