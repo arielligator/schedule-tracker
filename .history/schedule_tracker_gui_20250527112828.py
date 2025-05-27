@@ -1,6 +1,7 @@
 # IMPORTS/CONFIGS
 import streamlit as st
 import pandas as pd
+# import numpy as np
 from datetime import datetime, time
 from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
@@ -23,6 +24,13 @@ if hasattr(time, "tzset"):
 
 # ============================================================================
 # PASSWORD PROTECTION
+
+'''
+successful log in saved as cooke
+check login state cookie
+if not logged in, request password
+otherwise load site
+'''
 
 # Persistent login
 controller = CookieController()
