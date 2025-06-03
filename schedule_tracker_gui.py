@@ -1,7 +1,7 @@
 # IMPORTS/CONFIGS
 import streamlit as st
 import pandas as pd
-from datetime import datetime, time
+from datetime import datetime, date, time
 from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
@@ -143,6 +143,9 @@ count = st.container()
 
 with header:
     st.title('LIT Schedule Tracker')
+    today = date.today()
+    if today.month == 6 and today.day == 3:
+        st.subheader('✨ Happy Birthday, Judy!  🎉 🎂 🎈')
 
 # ============================================================================
 # UI FILTERS (Five-column layout)
