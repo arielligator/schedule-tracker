@@ -6,8 +6,6 @@ from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
 import os, time
-from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
-
 
 
 st.set_page_config(
@@ -22,9 +20,24 @@ if hasattr(time, "tzset"):
     time.tzset()
 
 # ============================================================================
+# CONTAINERS / LAYOUT
+header = st.container()
+filters = st.container()
+data, counter = st.columns([5,1])
+count = st.container()
+
+with header:
+    st.title('LIT Schedule Tracker')
+    today = date.today()
+    if today.month == 6 and today.day == 3:
+        st.subheader('✨ Happy Birthday, Judy!  🎉 🎂 🎈')
+
+# ============================================================================
 # PASSWORD PROTECTION
 
 # Persistent login
+from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
+
 controller = CookieController()
 RemoveEmptyElementContainer()
 
@@ -134,18 +147,7 @@ dynamic = DynamicFilters(
     filters_name="filters"
 )
 
-# ============================================================================
-# CONTAINERS / LAYOUT
-header = st.container()
-filters = st.container()
-data, counter = st.columns([5,1])
-count = st.container()
 
-with header:
-    st.title('LIT Schedule Tracker')
-    today = date.today()
-    if today.month == 6 and today.day == 3:
-        st.subheader('✨ Happy Birthday, Judy!  🎉 🎂 🎈')
 
 # ============================================================================
 # UI FILTERS (Five-column layout)
