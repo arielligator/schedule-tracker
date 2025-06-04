@@ -23,7 +23,7 @@ if hasattr(time, "tzset"):
 # CONTAINERS / LAYOUT
 header = st.container()
 filters = st.container()
-data, counter = st.columns([5,1])
+data, counter, buttons = st.columns([3.5,.9,1.2])
 count = st.container()
 
 with header:
@@ -36,48 +36,48 @@ with header:
 # PASSWORD PROTECTION
 
 # Persistent login
-# from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
+from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
 
-# controller = CookieController()
-# RemoveEmptyElementContainer()
+controller = CookieController()
+RemoveEmptyElementContainer()
 
-# login_cookie = st.secrets["cookie_auth"]["password"]
-# token = controller.get(login_cookie)
+login_cookie = st.secrets["cookie_auth"]["password"]
+token = controller.get(login_cookie)
 
-# if token and not st.session_state.get("authenticated", False):
-#     st.session_state["authenticated"] = True
+if token and not st.session_state.get("authenticated", False):
+    st.session_state["authenticated"] = True
 
-# def check_password():
-#     if "authenticated" not in st.session_state:
-#         st.session_state["authenticated"] = False
-#     if "password_tried" not in st.session_state:
-#         st.session_state["password_tried"] = False
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+    if "password_tried" not in st.session_state:
+        st.session_state["password_tried"] = False
 
-#     with st.sidebar.form(key="login_form"):
-#         st.text('Enter the password!')
-#         password = st.text_input("Password:", type="password")
-#         submitted = st.form_submit_button("Login")
+    with st.sidebar.form(key="login_form"):
+        st.text('Enter the password!')
+        password = st.text_input("Password:", type="password")
+        submitted = st.form_submit_button("Login")
 
-#     if submitted:
-#         if password == st.secrets["auth"]["password"]:
-#             st.session_state["authenticated"] = True
-#         else:
-#             st.session_state["password_tried"] = True
-#             st.session_state["authenticated"] = False
+    if submitted:
+        if password == st.secrets["auth"]["password"]:
+            st.session_state["authenticated"] = True
+        else:
+            st.session_state["password_tried"] = True
+            st.session_state["authenticated"] = False
 
-#     if st.session_state["authenticated"]:
-#         # persist a cookie for 14 days
-#         controller.set(login_cookie, "yes", max_age=14*24*60*60)
-#         st.sidebar.success("Access Granted")
-#         return True
-#     elif st.session_state["password_tried"]:
-#         st.sidebar.error("Incorrect password. Try again.")
-#         return False
-#     else:
-#         return False
+    if st.session_state["authenticated"]:
+        # persist a cookie for 14 days
+        controller.set(login_cookie, "yes", max_age=14*24*60*60)
+        st.sidebar.success("Access Granted")
+        return True
+    elif st.session_state["password_tried"]:
+        st.sidebar.error("Incorrect password. Try again.")
+        return False
+    else:
+        return False
 
-# if not check_password():
-#     st.stop()
+if not check_password():
+    st.stop()
 
 
 # ============================================================================
@@ -418,116 +418,111 @@ with counter:
     # build counts and labels only for filtered hours
     counts = []
     labels = []
+    start_times = []
+    end_times = []
+
     for h in hours_to_plot:
         window_start = time(h, 0)
         window_end   = time((h + 1) % 24, 0)
 
         # count overlaps in [h:00 → h+1:00)
-        c = df_base.apply(
-            lambda row: interval_overlaps(
+        c = sum(
+            interval_overlaps(
                 parse_time(row["Start Time"]),
                 parse_time(row["End Time"]),
                 window_start,
                 window_end
-            ),
-            axis=1
-        ).sum()
+            )
+            for _, row in df_base.iterrows()
+        )
+
 
         counts.append(c)
+        start_times.append(window_start)
+        end_times.append(window_end)
 
         # build the label without %-flags
         start_label = window_start.strftime('%I %p').lstrip('0')
         end_label   = window_end.strftime(  '%I %p').lstrip('0')
         labels.append(f"{start_label}–{end_label}")
 
+    counts = [int(c) if not isinstance(c, (int, float)) else c for c in counts]
+
+    # ✅ collapse if all 0s
+    if counts and all(c == 0 for c in counts):
+        labels = ["No Data"]
+        counts = [0]
+        start_times = [time(0, 0)]
+        end_times = [time(0, 0)]
+
+    # ✅ now all lists have matching lengths
+    df_ranges = pd.DataFrame({
+        "Hour Range": labels,
+        "Count": counts,
+        "Start Time": start_times,
+        "End Time": end_times
+    })
+
     # ③ assemble and display
-    df_ranges = (
-        pd.Series(counts, index=labels, name="Count")
-          .to_frame()
-          .rename_axis("Hour Range")
+    from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+    import streamlit as st
+    import pandas as pd
+    from datetime import time
+
+    # Build your summary DataFrame
+    # df_ranges = pd.DataFrame({
+    #     "Hour Range": labels,
+    #     "Count": counts,
+    #     "Start Time": [time(h, 0) for h in hours_to_plot],
+    #     "End Time": [time((h + 1) % 24, 0) for h in hours_to_plot]
+    # })
+
+    # Set up AgGrid
+    gb = GridOptionsBuilder.from_dataframe(df_ranges[["Hour Range", "Count"]])
+    gb.configure_selection(selection_mode="single", use_checkbox=True)
+    grid_options = gb.build()
+
+    # Display AgGrid
+    grid_response = AgGrid(
+        df_ranges,
+        gridOptions=grid_options,
+        height=400,
+        width='100%',
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True
     )
-    st.dataframe(df_ranges, use_container_width=True)
-    
 
+    # Handle selected row
+    with buttons:
+        selected_df = pd.DataFrame(grid_response["selected_rows"])
 
+        if not selected_df.empty:
+            row = selected_df.iloc[0]
+            selected_label = row["Hour Range"]
 
-# Counter version that counts by hour (i.e. 9am, 10am, etc. instead of ranges)
-# # TIME COUNTER
-# with counter:
-#     # 0️⃣  Apply Name/Team/Location/Weekday filters only
-#     df_base = dynamic.filter_df(except_filter="Time of Day")
+            # Convert string → time object
+            selected_start = datetime.strptime(row["Start Time"], "%H:%M:%S").time()
+            selected_end   = datetime.strptime(row["End Time"], "%H:%M:%S").time()
 
-#     # 1️⃣  Decide mode, initialize
-#     mode = st.session_state.get("time_mode", "All")
-#     hours_to_plot = []
-#     t = None
+            st.text(f"People working {selected_label}:")
 
-#     if mode == "Now":
-#         t = datetime.now().time()
-#         hours_to_plot = [t.hour]
+            filtered_people = df_base[
+                df_base.apply(
+                    lambda r: interval_overlaps(
+                        parse_time(r["Start Time"]),
+                        parse_time(r["End Time"]),
+                        selected_start,
+                        selected_end
+                    ),
+                    axis=1
+                )
+            ]
 
-#     elif mode == "Custom Time":
-#         txt = st.session_state.get("custom_time_txt", "")
-#         if txt:
-#             try:
-#                 t = parse_time(txt)
-#                 hours_to_plot = [t.hour]
-#             except ValueError:
-#                 hours_to_plot = []
-
-#     elif mode == "Custom Time Range":
-#         start_txt = st.session_state.get("start_txt", "")
-#         end_txt   = st.session_state.get("end_txt", "")
-#         if start_txt and end_txt:
-#             try:
-#                 s = parse_time(start_txt)
-#                 e = parse_time(end_txt)
-#                 hours_to_plot = list(range(s.hour, e.hour))
-#             except ValueError:
-#                 hours_to_plot = []
-
-#     else:  # “All”
-#         hours_to_plot = list(range(24))
-
-#     # 2️⃣  Build & show hourly‐counts table
-#     if hours_to_plot:
-#         counts = []
-#         for h in hours_to_plot:
-#             hr_start = time(h, 0)
-#             hr_end   = time((h + 1) % 24, 0)
-#             c = df_base.apply(
-#                 lambda row: interval_overlaps(
-#                     parse_time(row["Start Time"]),
-#                     parse_time(row["End Time"]),
-#                     hr_start,
-#                     hr_end
-#                 ),
-#                 axis=1
-#             ).sum()
-#             counts.append(c)
-
-#         ser = pd.Series(counts, index=hours_to_plot, name="Count")
-#         def fmt_label(h):
-#             suffix = "am" if h < 12 else "pm"
-#             hh = h % 12 or 12
-#             return f"{hh} {suffix}"
-
-#         df_counts = ser.to_frame().rename_axis("Hour")
-#         df_counts.index = df_counts.index.map(fmt_label)
-#         st.dataframe(df_counts, use_container_width=True)
-#     else:
-#         st.write("⏳ Enter a valid time (or range) above to show hourly counts.")
-
-#     # 3️⃣  If we picked a single time, print the “On duty at …” line
-#     if t is not None:
-#         on_now = df_base.apply(
-#             lambda row: interval_overlaps(
-#                 parse_time(row["Start Time"]),
-#                 parse_time(row["End Time"]),
-#                 t, time((t.hour + 1) % 24, 0)
-#             ),
-#             axis=1
-#         ).sum()
-#         st.text(f"On duty at {t.strftime('%I:%M %p').lstrip('0')}: {on_now}")
-
-
+            # Only show names (assumes column is named "Employee" or "Name")
+            if "Employee" in filtered_people.columns:
+                st.dataframe(filtered_people[["Employee"]], use_container_width=True)
+            elif "Name" in filtered_people.columns:
+                st.dataframe(filtered_people[["Name"]], use_container_width=True)
+            else:
+                st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
