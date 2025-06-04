@@ -3,3 +3,4 @@ pandas
 dropbox
 streamlit-dynamic-filters
 streamlit_cookies_controller
+st_aggrid
