@@ -531,7 +531,7 @@ with counter:
 # ============================================================================
 # PTO VIEWER
 
-from pto import fetch_pto_tickets, clear_pto_cache
+from pto import fetch_pto_tickets, clear_pto_cache, pto_happening, pto_requests
 
 
 # pto_happening = pto["happening"]
