@@ -57,6 +57,8 @@ def fetch_pto_tickets():
 # with open("all_tickets.json", "w", encoding="utf-8") as f:
 #     json.dump(all_tickets, f, ensure_ascii=False, indent=2)
 
+def clear_pto_cache():
+    fetch_pto_tickets.clear()
 
 #============================================================================================================================================
 # PARSE DATA INTO DICTS WITH SUMMARY AND STATUS
