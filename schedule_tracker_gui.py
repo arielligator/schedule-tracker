@@ -528,26 +528,26 @@ with counter:
             else:
                 st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
 
+
 # ============================================================================
 # PTO VIEWER
 
-from pto import fetch_pto_tickets, clear_pto_cache, pto_happening, pto_requests
+from pto import fetch_pto_tickets
 
+if st.button('Refresh PTO Data'):
+    fetch_pto_tickets().clear()
 
-# pto_happening = pto["happening"]
-# pto_requests = pto["requests"]
+with st.spinner('Loading PTO data...'):
+    pto = fetch_pto_tickets()
+
+pto_all = pto["all"]
+pto_happening = pto["happening"]
+pto_requests = pto["requests"]
 
 
 on = st.toggle("PTO Viewer")
 
 if on:
-    if st.button('Refresh PTO Data'):
-        clear_pto_cache()
-        st.rerun()
-
-    with st.spinner('Loading PTO data...'):
-        fetch_pto_tickets()
-
     # Convert 'Days' strings to lists
     for entry in pto_requests:
         entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
@@ -582,7 +582,7 @@ if on:
                     st.markdown("*No overlapping PTO*")
 
             # Right side: show overlaps if toggle is on
-            with pto2:
+            with pto2:Add commentMore actions
                 if overlaps and overlap:
                     for happening in overlaps:
                         if not happening.get("TimeRange"):
@@ -591,5 +591,4 @@ if on:
                             {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
                             use_container_width=True
                         )
-
 
