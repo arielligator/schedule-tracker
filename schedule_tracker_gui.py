@@ -533,7 +533,7 @@ with counter:
 
 from pto import fetch_pto_tickets, clear_pto_cache
 
-pto_all = pto["all"]
+
 pto_happening = pto["happening"]
 pto_requests = pto["requests"]
 
