@@ -6,6 +6,7 @@ from schedule_tracker import df
 from streamlit_dynamic_filters import DynamicFilters
 import re
 import os, time
+import requests
 
 
 st.set_page_config(
@@ -36,48 +37,48 @@ with header:
 # PASSWORD PROTECTION
 
 # Persistent login
-from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
+# from streamlit_cookies_controller import CookieController, RemoveEmptyElementContainer
 
-controller = CookieController()
-RemoveEmptyElementContainer()
+# controller = CookieController()
+# RemoveEmptyElementContainer()
 
-login_cookie = st.secrets["cookie_auth"]["password"]
-token = controller.get(login_cookie)
+# login_cookie = st.secrets["cookie_auth"]["password"]
+# token = controller.get(login_cookie)
 
-if token and not st.session_state.get("authenticated", False):
-    st.session_state["authenticated"] = True
+# if token and not st.session_state.get("authenticated", False):
+#     st.session_state["authenticated"] = True
 
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-    if "password_tried" not in st.session_state:
-        st.session_state["password_tried"] = False
+# def check_password():
+#     if "authenticated" not in st.session_state:
+#         st.session_state["authenticated"] = False
+#     if "password_tried" not in st.session_state:
+#         st.session_state["password_tried"] = False
 
-    with st.sidebar.form(key="login_form"):
-        st.text('Enter the password!')
-        password = st.text_input("Password:", type="password")
-        submitted = st.form_submit_button("Login")
+#     with st.sidebar.form(key="login_form"):
+#         st.text('Enter the password!')
+#         password = st.text_input("Password:", type="password")
+#         submitted = st.form_submit_button("Login")
 
-    if submitted:
-        if password == st.secrets["auth"]["password"]:
-            st.session_state["authenticated"] = True
-        else:
-            st.session_state["password_tried"] = True
-            st.session_state["authenticated"] = False
+#     if submitted:
+#         if password == st.secrets["auth"]["password"]:
+#             st.session_state["authenticated"] = True
+#         else:
+#             st.session_state["password_tried"] = True
+#             st.session_state["authenticated"] = False
 
-    if st.session_state["authenticated"]:
-        # persist a cookie for 14 days
-        controller.set(login_cookie, "yes", max_age=14*24*60*60)
-        st.sidebar.success("Access Granted")
-        return True
-    elif st.session_state["password_tried"]:
-        st.sidebar.error("Incorrect password. Try again.")
-        return False
-    else:
-        return False
+#     if st.session_state["authenticated"]:
+#         # persist a cookie for 14 days
+#         controller.set(login_cookie, "yes", max_age=14*24*60*60)
+#         st.sidebar.success("Access Granted")
+#         return True
+#     elif st.session_state["password_tried"]:
+#         st.sidebar.error("Incorrect password. Try again.")
+#         return False
+#     else:
+#         return False
 
-if not check_password():
-    st.stop()
+# if not check_password():
+#     st.stop()
 
 
 # ============================================================================
@@ -526,3 +527,74 @@ with counter:
                 st.dataframe(filtered_people[["Name"]], use_container_width=True)
             else:
                 st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
+
+# ============================================================================
+# PTO VIEWER
+
+# from pto import fetch_pto_tickets
+
+# if st.button('Refresh PTO Data'):
+#     fetch_pto_tickets().clear()
+
+# with st.spinner('Loading PTO data...'):
+#     pto = fetch_pto_tickets()
+
+# pto_all = pto["all"]
+# pto_happening = pto["happening"]
+# pto_requests = pto["requests"]
+
+pto_requests = [{'Name': 'Faiq A', 'Location': 'Remote/TX', 'Team': 'Help Desk', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/13', 'status': 'Needs Approval'}, {'Name': 'Frank C', 'Location': 'Hicksville', 'Team': 'Management', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/19, 6/20', 'status': 'Needs Approval'}, {'Name': 'Andreas H', 'Location': 'Cyprus', 'Team': 'NOC', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/10', 'status': 'Needs Approval'}, {'Name': 'Ritchie R', 'Location': 'Philippines', 'Team': 'Help Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/25, 6/26', 'status': 'Needs Approval'}, {'Name': 'Yiota P', 'Location': 'Cyprus', 'Team': 'CSC', 'Type': 'Personal', 'TimeRange': None, 'Days': '7/18', 'status': 'Needs Approval'}]
+
+pto_happening = [{'Name': 'Miguel R', 'Location': 'HHAR', 'Team': 'Help Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'Khadijia B', 'Location': 'NYC/HHAR', 'Team': 'HelpDesk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '6/12', 'status': 'Time Checked'}, {'Name': 'Eldan B', 'Location': 'Philippines', 'Team': 'Help Desk', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/09', 'status': 'Added to LCS Calendar'}, {'Name': 'Arinze M', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '8/08, 8/11, 8/12, 8/13, 8/14, 8/15, 8/18, 8/19, 8/20, 8/21, 8/22', 'status': 'Added to LCS Calendar'}, {'Name': 'Arinze M', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '7/24, 7/25, 7/28, 7/29, 7/30, 7/31, 8/01, 8/04, 8/05, 8/06, 8/07', 'status': 'Added to LCS Calendar'}, {'Name': 'Arinze M', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '7/09, 7/10, 7/11, 7/14, 7/15, 7/16, 7/17, 7/18, 7/21, 7/22, 7/23', 'status': 'Added to LCS Calendar'}, {'Name': 'Arinze M', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '6/24, 6/25, 6/26, 6/27, 6/30, 7/01, 7/02, 7/03, 7/04, 7/07, 7/08', 'status': 'Added to LCS Calendar'}, {'Name': 'Dan L', 'Location': 'Hicksville', 'Team': 'Management', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/11, 6/12, 6/13', 'status': 'Time Checked'}, {'Name': 'Arinze M', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '6/16, 6/17, 6/18, 6/19, 6/20, 6/23', 'status': 'Added to LCS Calendar'}, {'Name': 'Ariella Y', 'Location': 'Hicksville', 'Team': 'Sales', 'Type': 'Vacation', 'TimeRange': None, 'Days': '8/04, 8/05, 8/06, 8/07, 8/08, 8/11', 'status': 'Time Checked'}, {'Name': 'Richard D', 'Location': 'Philippines', 'Team': 'Help Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/12, 6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'Sam R', 'Location': 'Hicksville', 'Team': 'Management', 'Type': 'WFH', 'TimeRange': None, 'Days': '6/12', 'status': 'Added to LCS Calendar'}, {'Name': 'Andreas H', 'Location': 'Cyprus', 'Team': 'NOC', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/10', 'status': 'Added to LCS Calendar'}, {'Name': 'Jomar S', 'Location': 'Philippines', 'Team': 'Help Desk', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/10', 'status': 'Added to LCS Calendar'}, {'Name': 'Leonard P', 'Location': 'Philippines', 'Team': 'CSC', 'Type': 'Personal', 'TimeRange': None, 'Days': '12/29, 12/30, 12/31, 1/01, 1/02, 1/05', 'status': 'Added to LCS Calendar'}, {'Name': 'Mike W', 'Location': 'Hicksville', 'Team': 'Sales', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/09, 6/10, 6/11, 6/12', 'status': 'Added to LCS Calendar'}, {'Name': 'Duane Z', 'Location': 'Philippines', 'Team': 'Helpdesk', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/09', 'status': 'Added to LCS Calendar'}, {'Name': 'Eldan B', 'Location': 'Philippines', 'Team': 'Help Desk', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/14', 'status': 'Added to LCS Calendar'}, {'Name': 'Norbert N', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/24, 6/25', 'status': 'Added to LCS Calendar'}, {'Name': 'Norbert N', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Sick', 'TimeRange': None, 'Days': '7/01', 'status': 'Added to LCS Calendar'}, {'Name': 'Angela W', 'Location': 'Hicksville', 'Team': 'Sales', 'Type': 'Vacation', 'TimeRange': None, 'Days': '7/14, 7/15, 7/16, 7/17, 7/18', 'status': 'Time Checked'}, {'Name': 'Ziynou F', 'Location': 'HHAR', 'Team': 'HHAR', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/25', 'status': 'Added to LCS Calendar'}, {'Name': 'Ziynou F', 'Location': 'HHAR', 'Team': 'HHAR', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/20', 'status': 'Added to LCS Calendar'}, {'Name': 'Ziynou F', 'Location': 'HHAR', 'Team': 'HHAR', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'Khadijia B', 'Location': 'NYC/HHAR', 'Team': 'HelpDesk', 'Type': 'FMLA', 'TimeRange': None, 'Days': '7/22', 'status': 'Added to LCS Calendar'}, {'Name': 'Konstantinos R', 'Location': 'Cyprus', 'Team': 'Service Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/09', 'status': 'Added to LCS Calendar'}, {'Name': 'Judy C', 'Location': 'Hicksville', 'Team': 'Management', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/09, 6/10, 6/11, 6/12, 6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'John L', 'Location': 'Hicksville', 'Team': 'NOC', 'Type': 'FMLA', 'TimeRange': None, 'Days': '6/09, 6/10, 6/11, 6/12, 6/13, 6/16, 6/17, 6/18, 6/19, 6/20', 'status': 'Added to LCS Calendar'}, {'Name': 'Jessica C', 'Location': 'Hicksville', 'Team': 'Onboarding', 'Type': 'Vacation', 'TimeRange': None, 'Days': '9/08, 9/09, 9/10, 9/11, 9/12', 'status': 'Added to LCS Calendar'}, {'Name': 'Joe A', 'Location': 'Hicksville', 'Team': 'Management', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/13', 'status': 'Time Checked'}, {'Name': 'Alexandros F', 'Location': 'Cyprus', 'Team': 'Help Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '5/28, 5/30, 6/10', 'status': 'Added to LCS Calendar'}, {'Name': 'Patty M', 'Location': 'Remote/FL', 'Team': 'CSC', 'Type': 'Personal', 'TimeRange': None, 'Days': '9/02', 'status': 'Added to LCS Calendar'}, {'Name': 'Patty M', 'Location': 'Remote/FL', 'Team': 'CSC', 'Type': 'Sick', 'TimeRange': None, 'Days': '8/25, 8/26', 'status': 'Added to LCS Calendar'}, {'Name': 'Joe B', 'Location': 'Hicksville', 'Team': 'Management', 'Type': 'Personal', 'TimeRange': None, 'Days': '7/03, 7/07, 7/08, 7/09, 7/10, 7/11', 'status': 'Time Checked'}, {'Name': 'Yiota P', 'Location': 'Cyprus', 'Team': 'CSC', 'Type': 'Personal', 'TimeRange': None, 'Days': '7/24, 7/25', 'status': 'Added to LCS Calendar'}, {'Name': 'Yiota P', 'Location': 'Cyprus', 'Team': 'CSC', 'Type': 'Personal', 'TimeRange': None, 'Days': '7/04', 'status': 'Added to LCS Calendar'}, {'Name': 'Argie F', 'Location': 'Philippines', 'Team': 'QA', 'Type': 'Vacation', 'TimeRange': None, 'Days': '7/18, 7/21, 7/22, 7/23, 7/24, 7/25, 7/28', 'status': 'Added to LCS Calendar'}, {'Name': 'Jody D', 'Location': 'Hicksville', 'Team': 'Sales', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'Patty M', 'Location': 'Remote/FL', 'Team': 'CSC', 'Type': 'Sick', 'TimeRange': None, 'Days': '8/01', 'status': 'Added to LCS Calendar'}, {'Name': 'George B', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'Vacation', 'TimeRange': None, 'Days': '9/03, 9/04, 9/05, 9/08, 9/09, 9/10, 9/11, 9/12', 'status': 'Added to LCS Calendar'}, {'Name': 'Andrew E', 'Location': 'NYC', 'Team': 'Help Desk', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/30, 7/01, 7/02, 7/03, 7/07, 7/08, 7/09, 7/10, 7/11', 'status': 'Added to LCS Calendar'}, {'Name': 'Michael L', 'Location': 'Hicksville', 'Team': 'Warehouse', 'Type': 'Vacation', 'TimeRange': None, 'Days': '8/25, 8/26, 8/27, 8/28, 8/29, 9/02, 9/03, 9/04, 9/05', 'status': 'Added to LCS Calendar'}, {'Name': 'Kelly Y', 'Location': 'Remote/NY', 'Team': 'Help Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'Brian G', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/25', 'status': 'Added to LCS Calendar'}, {'Name': 'Konstantinos R', 'Location': 'Cyprus', 'Team': 'Service Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '9/02, 9/03, 9/04, 9/05, 9/08, 9/09, 9/10, 9/11', 'status': 'Added to LCS Calendar'}, {'Name': 'Costas Y', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/30, 7/01, 7/02, 7/03, 7/07, 7/08, 7/09, 7/10, 7/11', 'status': 'Added to LCS Calendar'}, {'Name': 'Jennifer M', 'Location': 'Remote/AL', 'Team': 'Service Desk', 'Type': 'Personal', 'TimeRange': None, 'Days': '11/06, 11/07', 'status': 'Added to LCS Calendar'}, {'Name': 'Bobby A', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Vacation', 'TimeRange': None, 'Days': '9/04, 9/05, 9/08, 9/09, 9/10, 9/11, 9/12', 'status': 'Added to LCS Calendar'}, {'Name': 'Kourosh K', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Personal', 'TimeRange': None, 'Days': '10/07, 10/08', 'status': 'Added to LCS Calendar'}, {'Name': 'Kourosh K', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Personal', 'TimeRange': None, 'Days': '10/02', 'status': 'Added to LCS Calendar'}, {'Name': 'Kourosh K', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Personal', 'TimeRange': None, 'Days': '10/14, 10/15', 'status': 'Added to LCS Calendar'}, {'Name': 'Bobby A', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Personal', 'TimeRange': None, 'Days': '6/30, 7/01, 7/02, 7/03', 'status': 'Added to LCS Calendar'}, {'Name': 'Khadijia B', 'Location': 'NYC/HHAR', 'Team': 'HelpDesk', 'Type': 'Sick', 'TimeRange': None, 'Days': '6/13', 'status': 'Added to LCS Calendar'}, {'Name': 'Brian G', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Vacation', 'TimeRange': None, 'Days': '7/03, 7/07, 7/08, 7/09, 7/10, 7/11', 'status': 'Time Checked'}, {'Name': 'Ruben Q', 'Location': 'Remote/SC', 'Team': 'Escalations', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/30, 7/01, 7/02, 7/03', 'status': 'Added to LCS Calendar'}, {'Name': 'Brian G', 'Location': 'Hicksville', 'Team': 'Escalations', 'Type': 'Vacation', 'TimeRange': None, 'Days': '7/03, 7/07, 7/08, 7/09, 7/10, 7/11', 'status': 'Added to LCS Calendar'}, {'Name': 'Patty M', 'Location': 'Remote/FL', 'Team': 'CSC', 'Type': 'Personal', 'TimeRange': None, 'Days': '7/03', 'status': 'Added to LCS Calendar'}, {'Name': 'Denise C', 'Location': ' Hicksville', 'Team': 'NOC', 'Type': 'Vacation', 'TimeRange': None, 'Days': '6/12', 'status': 'Time Checked'}]
+
+
+
+
+on = st.toggle("PTO Viewer")
+
+if on:
+    # Convert 'Days' strings to lists
+    for entry in pto_requests:
+        entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
+
+    for entry in pto_happening:
+        entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
+
+    for i, request in enumerate(pto_requests):
+        with st.container():
+            pto1, pto2 = st.columns(2)
+
+            # Left side: show request
+            with pto1:
+                if not request.get("TimeRange"):
+                    request.pop("TimeRange", None)
+                st.dataframe(
+                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in request.items()},
+                    use_container_width=True
+                )
+
+                # Precompute overlaps
+                overlaps = [
+                    happening for happening in pto_happening
+                    if any(day in request['Days'] for day in happening['Days']) and
+                       request['Team'] == happening['Team']
+                ]
+
+                # Show toggle if there are overlaps
+                if overlaps:
+                    overlap = st.toggle("View Overlapping PTO", key=f"overlap_toggle_{i}")
+                else:
+                    st.markdown("*No overlapping PTO*")
+
+            # Right side: show overlaps if toggle is on
+            with pto2:
+                if overlaps and overlap:
+                    for happening in overlaps:
+                        if not happening.get("TimeRange"):
+                            happening.pop("TimeRange", None)
+                        st.dataframe(
+                            {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
+                            use_container_width=True
+                        )
+
+
