@@ -526,3 +526,66 @@ with counter:
                 st.dataframe(filtered_people[["Name"]], use_container_width=True)
             else:
                 st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
+
+# ============================================================================
+# PTO VIEWER
+
+from pto import fetch_pto_tickets
+
+if st.button('Refresh PTO Data'):
+    fetch_pto_tickets().clear()
+
+with st.spinner('Loading PTO data...'):
+    pto = fetch_pto_tickets()
+
+pto_all = pto["all"]
+pto_happening = pto["happening"]
+pto_requests = pto["requests"]
+
+
+on = st.toggle("PTO Viewer")
+
+if on:
+    # Convert 'Days' strings to lists
+    for entry in pto_requests:
+        entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
+
+    for entry in pto_happening:
+        entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
+
+    for i, request in enumerate(pto_requests):
+        with st.container():
+            pto1, pto2 = st.columns(2)
+
+            # Left side: show request
+            with pto1:
+                if not request.get("TimeRange"):
+                    request.pop("TimeRange", None)
+                st.dataframe(
+                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in request.items()},
+                    use_container_width=True
+                )
+
+                # Precompute overlaps
+                overlaps = [
+                    happening for happening in pto_happening
+                    if any(day in request['Days'] for day in happening['Days']) and
+                       request['Team'] == happening['Team']
+                ]
+
+                # Show toggle if there are overlaps
+                if overlaps:
+                    overlap = st.toggle("View Overlapping PTO", key=f"overlap_toggle_{i}")
+                else:
+                    st.markdown("*No overlapping PTO*")
+
+            # Right side: show overlaps if toggle is on
+            with pto2:
+                if overlaps and overlap:
+                    for happening in overlaps:
+                        if not happening.get("TimeRange"):
+                            happening.pop("TimeRange", None)
+                        st.dataframe(
+                            {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
+                            use_container_width=True
+                        )
