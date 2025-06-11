@@ -582,7 +582,7 @@ if on:
                     st.markdown("*No overlapping PTO*")
 
             # Right side: show overlaps if toggle is on
-            with pto2:Add commentMore actions
+            with pto2:
                 if overlaps and overlap:
                     for happening in overlaps:
                         if not happening.get("TimeRange"):
