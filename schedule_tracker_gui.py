@@ -546,7 +546,7 @@ if on:
         st.rerun()
 
     with st.spinner('Loading PTO data...'):
-        pto = fetch_pto_tickets()
+        fetch_pto_tickets()
 
     # Convert 'Days' strings to lists
     for entry in pto_requests:
