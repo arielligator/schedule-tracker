@@ -256,3 +256,25 @@ df = df[df_order]
 df['Work Days'] = df['Work Days'].str.join(', ')
 
 # print(df.to_string())
+
+
+#============================================================================================================================================
+# ON CALL LIST
+
+oncall_csv = '/Daily Schedule/On Call.csv'
+
+# download the file into memory
+metadata2, res2 = dbx.files_download(oncall_csv)
+print(f"Downloaded: {metadata2.path_display}")
+
+
+s2 = res2.content.decode('utf-8') # turn bytes into str
+f2 = io.StringIO(s2) # wrap it in a file-like object
+
+oncall_reader = csv.DictReader(f2) # read from that
+
+
+df_oncall = pd.DataFrame(oncall_reader)
+df_oncall.rename(columns={df_oncall.columns[0]: ''}, inplace=True)
+
+print(df_oncall)
