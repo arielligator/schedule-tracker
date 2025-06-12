@@ -30,7 +30,8 @@ def fetch_pto_tickets():
         headers = {
             "clientid": clientid,
             "Authorization": auth_header,
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip, deflate"
         }
 
         # print(f"Fetching page {page}...")
