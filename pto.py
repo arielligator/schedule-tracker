@@ -49,7 +49,7 @@ def fetch_pto_tickets():
         all_tickets.extend(tickets)
         page += 1
     
-    # return all_tickets
+    return all_tickets
 
 # print(f"Fetched {len(all_tickets)} tickets in total.")
 
@@ -57,10 +57,17 @@ def fetch_pto_tickets():
 # with open("all_tickets.json", "w", encoding="utf-8") as f:
 #     json.dump(all_tickets, f, ensure_ascii=False, indent=2)
 
+# def clear_pto_cache():
+#     fetch_pto_tickets.clear
+
+def clear_pto_cache():
+    fetch_pto_tickets.clear()
+
 
 #============================================================================================================================================
 # PARSE DATA INTO DICTS WITH SUMMARY AND STATUS
 
+def clean_api_response(all_tickets):
     # extract pto summaries from api response
     pto_data = []
     for ticket in all_tickets:
