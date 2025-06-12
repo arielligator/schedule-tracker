@@ -531,21 +531,22 @@ with counter:
 # ============================================================================
 # PTO VIEWER
 
-from pto import fetch_pto_tickets
-
-if st.button('Refresh PTO Data'):
-    fetch_pto_tickets().clear()
-
-with st.spinner('Loading PTO data...'):
-    pto = fetch_pto_tickets()
-
-pto_all = pto["all"]
-pto_happening = pto["happening"]
-pto_requests = pto["requests"]
+from pto import fetch_pto_tickets, clean_api_response, clear_pto_cache
 
 on = st.toggle("PTO Viewer")
 
 if on:
+    if st.button('Refresh PTO Data'):
+        clear_pto_cache()
+        st.rerun()
+
+    with st.spinner('Loading PTO data...'):
+        all_tickets = fetch_pto_tickets()
+        pto = clean_api_response(all_tickets)
+        pto_all = pto["all"]
+        pto_happening = pto["happening"]
+        pto_requests = pto["requests"]
+
     # Convert 'Days' strings to lists
     for entry in pto_requests:
         entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
@@ -589,5 +590,4 @@ if on:
                             {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
                             use_container_width=True
                         )
-
 
