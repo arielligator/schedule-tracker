@@ -276,5 +276,3 @@ oncall_reader = csv.DictReader(f2) # read from that
 
 df_oncall = pd.DataFrame(oncall_reader)
 df_oncall.rename(columns={df_oncall.columns[0]: ''}, inplace=True)
-
-print(df_oncall)
