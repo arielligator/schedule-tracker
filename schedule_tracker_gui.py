@@ -528,6 +528,12 @@ with counter:
             else:
                 st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
 
+# ============================================================================
+# ON CALL
+
+oncall_toggle = st.toggle("On Call")
+if oncall_toggle:
+    st.dataframe(df_oncall, use_container_width=True)
 
 # ============================================================================
 # PTO VIEWER
