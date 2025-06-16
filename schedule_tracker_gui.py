@@ -644,45 +644,45 @@ if on:
                             use_container_width=True
                         )
 
-# PTO counter
-from collections import defaultdict
-
-
-today = datetime.today()
-
-# --- Step 1: Build day → team → count, skipping past dates ---
-def build_future_day_team_counter(data):
-    counter = defaultdict(lambda: defaultdict(int))
-    for entry in data:
-        team = entry.get("Team", "Unknown")
-        for day_str in entry.get("Days", []):
-            try:
-                day_date = datetime.strptime(day_str.strip(), "%m/%d").replace(year=today.year)
-                if day_date >= today:
-                    counter[day_str][team] += 1
-            except ValueError:
-                continue
-    return counter
-
-requests_by_day_team = build_future_day_team_counter(pto_requests)
-happenings_by_day_team = build_future_day_team_counter(pto_happening)
-
-# --- Step 2: Sort days ---
-def sorted_by_date(counter_dict):
-    return sorted(counter_dict.items(), key=lambda x: datetime.strptime(x[0], '%m/%d'))
-
-# --- Step 3: Display inside expandable section ---
-def render_day_team_list(title, counter):
-    with st.expander(title):
-        for day, teams in sorted_by_date(counter):
-            team_counts = ', '.join(f"{count} {team}" for team, count in teams.items())
-            st.write(f"**{day}**: {team_counts}")
-
-# --- Step 4: Two-column layout with dropdowns ---
-request_column, happening_column = st.columns([1, 1])
-
-with request_column:
-    render_day_team_list("📅 PTO Requests Counter", requests_by_day_team)
-
-with happening_column:
-    render_day_team_list("🟢 PTO Happening Counter", happenings_by_day_team)
+    # PTO counter
+    from collections import defaultdict
+    
+    
+    today = datetime.today()
+    
+    # --- Step 1: Build day → team → count, skipping past dates ---
+    def build_future_day_team_counter(data):
+        counter = defaultdict(lambda: defaultdict(int))
+        for entry in data:
+            team = entry.get("Team", "Unknown")
+            for day_str in entry.get("Days", []):
+                try:
+                    day_date = datetime.strptime(day_str.strip(), "%m/%d").replace(year=today.year)
+                    if day_date >= today:
+                        counter[day_str][team] += 1
+                except ValueError:
+                    continue
+        return counter
+    
+    requests_by_day_team = build_future_day_team_counter(pto_requests)
+    happenings_by_day_team = build_future_day_team_counter(pto_happening)
+    
+    # --- Step 2: Sort days ---
+    def sorted_by_date(counter_dict):
+        return sorted(counter_dict.items(), key=lambda x: datetime.strptime(x[0], '%m/%d'))
+    
+    # --- Step 3: Display inside expandable section ---
+    def render_day_team_list(title, counter):
+        with st.expander(title):
+            for day, teams in sorted_by_date(counter):
+                team_counts = ', '.join(f"{count} {team}" for team, count in teams.items())
+                st.write(f"**{day}**: {team_counts}")
+    
+    # --- Step 4: Two-column layout with dropdowns ---
+    request_column, happening_column = st.columns([1, 1])
+    
+    with request_column:
+        render_day_team_list("📅 PTO Requests Counter", requests_by_day_team)
+    
+    with happening_column:
+        render_day_team_list("🟢 PTO Happening Counter", happenings_by_day_team)
