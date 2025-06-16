@@ -553,6 +553,7 @@ if on:
         pto_all = pto["all"]
         pto_happening = pto["happening"]
         pto_requests = pto["requests"]
+        
 
     # Convert 'Days' strings to lists
     for entry in pto_requests:
@@ -561,7 +562,43 @@ if on:
     for entry in pto_happening:
         entry['Days'] = [d.strip() for d in entry['Days'].split(',')]
 
-    for i, request in enumerate(pto_requests):
+    # month filter
+    import calendar
+
+    # Extract unique month numbers from all requests
+    month_numbers = set()
+    for request in pto_requests:
+        for day in request.get('Days', []):
+            try:
+                month = int(day.split('/')[0].strip())
+                if 1 <= month <= 12:
+                    month_numbers.add(month)
+            except (ValueError, IndexError):
+                continue  # skip malformed entries
+
+    # Convert month numbers to names
+    month_name_lookup = {num: calendar.month_name[num] for num in month_numbers}
+    month_names_sorted = [month_name_lookup[m] for m in sorted(month_name_lookup)]
+
+    # Multi-select month filter
+    selected_months = st.multiselect("Filter requests by month", month_names_sorted, default=month_names_sorted)
+
+    # Convert selected month names back to numbers
+    selected_month_nums = [num for num, name in month_name_lookup.items() if name in selected_months]
+
+    # Filter PTO requests by selected months
+    filtered_requests = [
+        req for req in pto_requests
+        if any(
+            day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
+            for day in req.get('Days', [])
+        )
+    ]
+
+
+
+    # display requests
+    for i, request in enumerate(filtered_requests):
         with st.container():
             pto1, pto2 = st.columns(2)
 
@@ -577,9 +614,18 @@ if on:
                 # Precompute overlaps
                 overlaps = [
                     happening for happening in pto_happening
-                    if any(day in request['Days'] for day in happening['Days']) and
-                       request['Team'] == happening['Team']
+                    if any(day in request['Days'] for day in happening['Days']) and (
+                        (
+                            request['Team'] in ['Help Desk', 'Service Desk'] and
+                            happening['Team'] in ['Help Desk', 'Service Desk']
+                        ) or
+                        (
+                            request['Team'] not in ['Help Desk', 'Service Desk'] and
+                            happening['Team'] == request['Team']
+                        )
+                    )
                 ]
+
 
                 # Show toggle if there are overlaps
                 if overlaps:
@@ -597,3 +643,46 @@ if on:
                             {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
                             use_container_width=True
                         )
+
+# PTO counter
+from collections import defaultdict
+
+
+today = datetime.today()
+
+# --- Step 1: Build day → team → count, skipping past dates ---
+def build_future_day_team_counter(data):
+    counter = defaultdict(lambda: defaultdict(int))
+    for entry in data:
+        team = entry.get("Team", "Unknown")
+        for day_str in entry.get("Days", []):
+            try:
+                day_date = datetime.strptime(day_str.strip(), "%m/%d").replace(year=today.year)
+                if day_date >= today:
+                    counter[day_str][team] += 1
+            except ValueError:
+                continue
+    return counter
+
+requests_by_day_team = build_future_day_team_counter(pto_requests)
+happenings_by_day_team = build_future_day_team_counter(pto_happening)
+
+# --- Step 2: Sort days ---
+def sorted_by_date(counter_dict):
+    return sorted(counter_dict.items(), key=lambda x: datetime.strptime(x[0], '%m/%d'))
+
+# --- Step 3: Display inside expandable section ---
+def render_day_team_list(title, counter):
+    with st.expander(title):
+        for day, teams in sorted_by_date(counter):
+            team_counts = ', '.join(f"{count} {team}" for team, count in teams.items())
+            st.write(f"**{day}**: {team_counts}")
+
+# --- Step 4: Two-column layout with dropdowns ---
+request_column, happening_column = st.columns([1, 1])
+
+with request_column:
+    render_day_team_list("📅 PTO Requests Counter", requests_by_day_team)
+
+with happening_column:
+    render_day_team_list("🟢 PTO Happening Counter", happenings_by_day_team)
