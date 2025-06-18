@@ -6,7 +6,7 @@ import re
 # PULL PTO DATA FROM CW
 
 @st.cache_data(ttl=3600*24) # cache for 1 day
-def fetch_pto_tickets():
+def fetch_pto_tickets(extra_params=None):
     # Credentials (already base64 if you got them from Postman)
     clientid = st.secrets['cw_pto']['clientid']
     auth_header = st.secrets['cw_pto']['auth_header']
@@ -19,13 +19,15 @@ def fetch_pto_tickets():
     page = 1
     all_tickets = []
 
-    # while True:
-    params = {
+    base_params = {
         "conditions": "board/id=42",
         "orderby": "id desc",
         "pageSize": str(page_size),
         "page": str(page)
     }
+
+    if extra_params:
+        base_params.update(extra_params)
 
     headers = {
         "clientid": clientid,
@@ -35,7 +37,7 @@ def fetch_pto_tickets():
     }
 
     # print(f"Fetching page {page}...")
-    response = requests.get(base_url, headers=headers, params=params)
+    response = requests.get(base_url, headers=headers, params=base_params)
 
     if response.status_code != 200:
         print(f"Error {response.status_code}: {response.text}")
@@ -80,7 +82,7 @@ def clean_api_response(all_tickets):
                 })
 
 
-    # print(pto_data)
+    # st.write(f'PTO Data: {pto_data}')
 
 #============================================================================================================================================
 # PARSE OUT NAME, LOCATION, TEAM, DATE(S), TIME FROM PTO_DATA
