@@ -611,30 +611,36 @@ if on:
         st.session_state[STATE_KEY] = month_names_sorted
         st.session_state[WIDGET_KEY] = month_names_sorted
         st.rerun()
+        
+    pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
 
     # --- Multiselect with separate widget key ---
-    selected_months = st.multiselect(
-        "Filter requests by month",
-        options=month_names_sorted,
-        default=st.session_state[STATE_KEY],
-        key=WIDGET_KEY
-    )
+    with pto_month_filter:
+        selected_months = st.multiselect(
+            "Filter requests by month",
+            options=month_names_sorted,
+            default=st.session_state[STATE_KEY],
+            key=WIDGET_KEY
+        )
 
     # Team Filter
-    selected_pto_teams = st.multiselect(
-        "Filter by Team",
-        options=pto_teams,
-        default=pto_teams,
-        key="pto_team_filter"
-    )
+    with pto_team_filter:
+        selected_pto_teams = st.multiselect(
+            "Filter by Team",
+            options=pto_teams,
+            default=pto_teams,
+            key="pto_team_filter"
+        )
 
     # Location Filter
-    selected_pto_locations = st.multiselect(
-        "Filter by Location",
-        options=pto_locations,
-        default=pto_locations,
-        key="pto_location_filter"
-    )
+    with pto_loc_filter:
+        selected_pto_locations = st.multiselect(
+            "Filter by Location",
+            options=pto_locations,
+            default=pto_locations,
+            key="pto_location_filter"
+        )
+
 
 
     # --- Convert month names to numbers ---
