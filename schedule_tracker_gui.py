@@ -503,6 +503,98 @@ if oncall_toggle:
     st.dataframe(df_oncall, use_container_width=True)
 
 # ============================================================================
+# DISPATCH
+import requests
+from datetime import datetime
+import pytz
+
+DISPATCH_BASE_URL = "https://cw.lincolncomputers.com/v4_6_release/apis/3.0"
+
+HEADERS = {
+    "clientid": st.secrets['cw_pto']['clientid'],
+    "Authorization": st.secrets['cw_pto']['auth_header'],
+    "Accept": "application/json"
+}
+
+# === GET TODAY'S DATE RANGE ===
+tz = pytz.timezone("America/New_York")  # adjust if needed
+today = datetime.now(tz).date()
+start_of_day = f"[{today}T00:00:00]"
+end_of_day = f"[{today}T23:59:59]"
+
+# === 1. GET SCHEDULE ENTRIES FOR TODAY ===
+schedule_url = f"{DISPATCH_BASE_URL}/schedule/entries"
+schedule_conditions = f"dateStart<={end_of_day} and dateEnd>={start_of_day}"
+params_schedule = {
+    "conditions": schedule_conditions,
+    "pageSize": 1000
+}
+
+schedule_resp = requests.get(schedule_url, headers=HEADERS, params=params_schedule)
+schedule_entries = schedule_resp.json()
+
+# Create a mapping from objectId (ticket number) to selected fields
+schedule_map = {
+    entry["objectId"]: {
+        "member": entry.get("member", {}).get("name"),
+        "dateStart": entry.get("dateStart"),
+        "dateEnd": entry.get("dateEnd")
+    }
+    for entry in schedule_entries
+}
+
+# === 2. GET TICKETS WITH STATUS "Scheduled Onsite" ===
+tickets_url = f"{DISPATCH_BASE_URL}/service/tickets"
+params_tickets = {
+    "conditions": 'status/name="Scheduled Onsite"',
+    "pageSize": 1000
+}
+
+tickets_resp = requests.get(tickets_url, headers=HEADERS, params=params_tickets)
+tickets = tickets_resp.json()
+
+# === 3. FILTER & COMBINE DATA ===
+results = []
+
+for ticket in tickets:
+    ticket_id = ticket.get("id")
+    if ticket_id in schedule_map:
+        combined = {
+            "ticket_id": ticket_id,
+            "company": ticket.get("company", {}).get("name"),
+            "site": ticket.get("site", {}).get("name"),
+            "summary": ticket.get("summary"),
+            **schedule_map[ticket_id]
+        }
+        results.append(combined)
+
+
+dispatch_df = pd.DataFrame(results)
+dispatch_df_order = ['member','summary','company','site','dateStart']
+dispatch_df = dispatch_df[dispatch_df_order]
+print(dispatch_df.columns.tolist())
+print(dispatch_df["dateStart"].head(5).tolist())
+
+
+def format_date(s):
+    try:
+        dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ")
+        return dt.strftime("%B %d").lstrip("0").replace(" 0", " ")  # cross-platform safe
+    except:
+        return s  # or return None if you want to skip invalid
+
+dispatch_df["dateStartFormatted"] = dispatch_df["dateStart"].apply(format_date)
+
+dispatch_df.rename(columns={'member':'Name', 'summary':'Summary', 'company':'Company', 'site':'Site','dateStartFormatted':'Date'}, inplace=True)
+dispatch_df_cleaned_list = ['Name','Summary','Company','Site','Date']
+dispatch_df_cleaned = dispatch_df[dispatch_df_cleaned_list]
+
+dispatch_toggle = st.toggle("Dispatch")
+if dispatch_toggle:
+    st.dataframe(dispatch_df_cleaned, use_container_width=True)
+
+
+# ============================================================================
 # PTO VIEWER
 
 from pto import fetch_pto_tickets, clean_api_response, clear_pto_cache
