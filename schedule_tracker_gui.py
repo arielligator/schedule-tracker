@@ -632,7 +632,7 @@ def format_date(s):
 dispatch_df["dateStartFormatted"] = dispatch_df["dateStart"].apply(format_date)
 
 dispatch_df.rename(columns={'member':'Name', 'summary':'Summary', 'company':'Company', 'site':'Site','dateStartFormatted':'Date'}, inplace=True)
-dispatch_df_cleaned_list = ['Name','Summary','Company','Site','Date']
+dispatch_df_cleaned_list = ['Name','Summary','Company','Site']
 dispatch_df_cleaned = dispatch_df[dispatch_df_cleaned_list]
 
 dispatch_toggle = st.toggle("Dispatch")
