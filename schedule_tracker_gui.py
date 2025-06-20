@@ -570,29 +570,49 @@ for ticket in tickets:
 
 
 dispatch_df = pd.DataFrame(results)
-dispatch_df_order = ['member','summary','company','site','dateStart']
+dispatch_df_order = ['member','summary','company','site','dateStart','dateEnd']
 dispatch_df = dispatch_df[dispatch_df_order]
 print(dispatch_df.columns.tolist())
 print(dispatch_df["dateStart"].head(5).tolist())
 
 
-def format_date(s):
+from datetime import datetime
+import pytz
+
+utc = pytz.utc
+eastern = pytz.timezone("America/New_York")
+
+def extract_date_and_times(start, end):
     try:
-        dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ")
-        return dt.strftime("%B %d").lstrip("0").replace(" 0", " ")  # cross-platform safe
-    except:
-        return s  # or return None if you want to skip invalid
+        dt_start_utc = utc.localize(datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ"))
+        dt_end_utc = utc.localize(datetime.strptime(end, "%Y-%m-%dT%H:%M:%SZ"))
+        
+        dt_start = dt_start_utc.astimezone(eastern)
+        dt_end = dt_end_utc.astimezone(eastern)
 
-dispatch_df["dateStartFormatted"] = dispatch_df["dateStart"].apply(format_date)
+        date_formatted = dt_start.strftime("%B %d").lstrip("0").replace(" 0", " ")
+        start_time = dt_start.strftime("%I:%M %p").lstrip("0")
+        end_time = dt_end.strftime("%I:%M %p").lstrip("0")
+    except Exception as e:
+        print(f"Error parsing times: {start}, {end} ({e})")
+        return pd.Series([None, None, None])
+    
+    return pd.Series([date_formatted, start_time, end_time])
 
-dispatch_df.rename(columns={'member':'Name', 'summary':'Summary', 'company':'Company', 'site':'Site','dateStartFormatted':'Date'}, inplace=True)
-dispatch_df_cleaned_list = ['Name','Summary','Company','Site']
+
+# Apply it across the DataFrame
+dispatch_df[["dateFormatted", "startTimeFormatted", "endTimeFormatted"]] = dispatch_df.apply(
+    lambda row: extract_date_and_times(row["dateStart"], row["dateEnd"]), axis=1
+)
+
+
+dispatch_df.rename(columns={'member':'Name', 'summary':'Summary', 'company':'Company', 'site':'Site','dateStartFormatted':'Date','startTimeFormatted':'Start Time','endTimeFormatted':'End Time'}, inplace=True)
+dispatch_df_cleaned_list = ['Name','Summary','Company','Site','Start Time','End Time']
 dispatch_df_cleaned = dispatch_df[dispatch_df_cleaned_list]
 
 dispatch_toggle = st.toggle("Dispatch")
 if dispatch_toggle:
     st.dataframe(dispatch_df_cleaned, use_container_width=True)
-
 
 # ============================================================================
 # PTO VIEWER
