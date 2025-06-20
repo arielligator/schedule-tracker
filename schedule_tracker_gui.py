@@ -586,18 +586,23 @@ def extract_date_and_times(start, end):
     try:
         dt_start_utc = utc.localize(datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ"))
         dt_end_utc = utc.localize(datetime.strptime(end, "%Y-%m-%dT%H:%M:%SZ"))
-        
+
         dt_start = dt_start_utc.astimezone(eastern)
         dt_end = dt_end_utc.astimezone(eastern)
+
+        # Check for all-day event: both times at 00:00:00 UTC
+        if dt_start_utc.time() == dt_end_utc.time() == datetime.strptime("00:00:00", "%H:%M:%S").time():
+            date_formatted = dt_start.strftime("%B %d").lstrip("0").replace(" 0", " ")
+            return pd.Series([date_formatted, "All Day", "All Day"])
 
         date_formatted = dt_start.strftime("%B %d").lstrip("0").replace(" 0", " ")
         start_time = dt_start.strftime("%I:%M %p").lstrip("0")
         end_time = dt_end.strftime("%I:%M %p").lstrip("0")
+        return pd.Series([date_formatted, start_time, end_time])
+    
     except Exception as e:
         print(f"Error parsing times: {start}, {end} ({e})")
         return pd.Series([None, None, None])
-    
-    return pd.Series([date_formatted, start_time, end_time])
 
 
 # Apply it across the DataFrame
