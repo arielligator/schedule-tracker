@@ -623,12 +623,19 @@ print(dispatch_df["dateStart"].head(5).tolist())
 
 
 from datetime import datetime
+import pytz
+
+utc = pytz.utc
+eastern = pytz.timezone("America/New_York")
 
 def extract_date_and_times(start, end):
     try:
-        dt_start = datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ")
-        dt_end = datetime.strptime(end, "%Y-%m-%dT%H:%M:%SZ")
+        dt_start_utc = utc.localize(datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ"))
+        dt_end_utc = utc.localize(datetime.strptime(end, "%Y-%m-%dT%H:%M:%SZ"))
         
+        dt_start = dt_start_utc.astimezone(eastern)
+        dt_end = dt_end_utc.astimezone(eastern)
+
         date_formatted = dt_start.strftime("%B %d").lstrip("0").replace(" 0", " ")
         start_time = dt_start.strftime("%I:%M %p").lstrip("0")
         end_time = dt_end.strftime("%I:%M %p").lstrip("0")
