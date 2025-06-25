@@ -29,7 +29,7 @@ count = st.container()
 
 with header:
     st.title('LIT Schedule Tracker')
-    st.write('This url will no longer be valid starting Monday 6/30. Please use the link provided by Joe Allocco going forward.')
+    # st.write('This url will no longer be valid starting Monday 6/30. Please use the link provided by Joe Allocco going forward.')
     today = date.today()
     if today.month == 6 and today.day == 3:
         st.subheader('✨ Happy Birthday, Judy!  🎉 🎂 🎈')
