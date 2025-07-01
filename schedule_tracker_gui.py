@@ -29,7 +29,6 @@ count = st.container()
 
 with header:
     st.title('LIT Schedule Tracker')
-    # st.write('This url will no longer be valid starting Monday 6/30. Please use the link provided by Joe Allocco going forward.')
     today = date.today()
     if today.month == 6 and today.day == 3:
         st.subheader('✨ Happy Birthday, Judy!  🎉 🎂 🎈')
@@ -148,7 +147,6 @@ dynamic = DynamicFilters(
     filters=["Name", "Team", "Location", "Weekday"],
     filters_name="filters"
 )
-
 
 
 # ============================================================================
@@ -349,6 +347,7 @@ with data:
             'Lunch': format_lunch,
         }), use_container_width=True)
 
+
 with count:
     st.text(f"Total rows: {len(filtered_df)}")
 
@@ -452,6 +451,7 @@ with counter:
 
 
 
+
         counts.append(c)
         start_times.append(window_start)
         end_times.append(window_end)
@@ -522,25 +522,42 @@ with counter:
 
             st.text(f"People working {selected_label}:")
 
-            filtered_people = df_base[
-                df_base.apply(
-                    lambda r: interval_overlaps(
-                        parse_time(r["Start Time"]),
-                        parse_time(r["End Time"]),
-                        selected_start,
-                        selected_end
-                    ),
-                    axis=1
-                )
-            ]
+            def get_status(row):
+                try:
+                    work_start = parse_time(row["Start Time"])
+                    work_end   = parse_time(row["End Time"])
 
-            # Only show names (assumes column is named "Employee" or "Name")
+                    lunch_raw = row.get("Lunch", "").strip()
+                    has_lunch = lunch_raw and lunch_raw.lower() != "none"
+
+                    if has_lunch:
+                        lunch_start = parse_time(lunch_raw)
+                        lunch_end = (datetime.combine(datetime.today(), lunch_start) + pd.Timedelta(hours=1)).time()
+                    else:
+                        lunch_start = lunch_end = None
+
+                    if interval_overlaps(work_start, work_end, selected_start, selected_end):
+                        if lunch_start and interval_overlaps(lunch_start, lunch_end, selected_start, selected_end):
+                            return "At Lunch"
+                        return "Working"
+                    return None
+                except Exception:
+                    return None
+
+            # Add status column
+            df_base["Status"] = df_base.apply(get_status, axis=1)
+
+            # Only include rows where someone is working (with or without lunch)
+            filtered_people = df_base[df_base["Status"].notnull()]
+
             if "Employee" in filtered_people.columns:
-                st.dataframe(filtered_people[["Employee"]], use_container_width=True)
+                st.dataframe(filtered_people[["Employee", "Status"]], use_container_width=True)
             elif "Name" in filtered_people.columns:
-                st.dataframe(filtered_people[["Name"]], use_container_width=True)
+                st.dataframe(filtered_people[["Name", "Status"]], use_container_width=True)
             else:
                 st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
+
+
 
 # ============================================================================
 # ON CALL
@@ -548,6 +565,7 @@ with counter:
 oncall_toggle = st.toggle("On Call")
 if oncall_toggle:
     st.dataframe(df_oncall, use_container_width=True)
+
 
 # ============================================================================
 # DISPATCH
@@ -651,6 +669,7 @@ def extract_date_and_times(start, end):
         print(f"Error parsing times: {start}, {end} ({e})")
         return pd.Series([None, None, None])
 
+
 # Apply it across the DataFrame
 dispatch_df[["dateFormatted", "startTimeFormatted", "endTimeFormatted"]] = dispatch_df.apply(
     lambda row: extract_date_and_times(row["dateStart"], row["dateEnd"]), axis=1
@@ -664,6 +683,8 @@ dispatch_df_cleaned = dispatch_df[dispatch_df_cleaned_list]
 dispatch_toggle = st.toggle("Dispatch")
 if dispatch_toggle:
     st.dataframe(dispatch_df_cleaned, use_container_width=True)
+
+
 
 # ============================================================================
 # PTO VIEWER
@@ -723,143 +744,138 @@ if on:
     if STATE_KEY not in st.session_state:
         st.session_state[STATE_KEY] = month_names_sorted
 
-    # --- Reset button BEFORE multiselect to take effect before widget renders ---
-    if st.button("Reset Month Filter"):
-        st.session_state[STATE_KEY] = month_names_sorted
-        st.session_state[WIDGET_KEY] = month_names_sorted
-        st.rerun()
-        
-    pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
+    with st.expander("🕒 PTO Requests"):
+        # --- Reset button BEFORE multiselect to take effect before widget renders ---
+        if st.button("Reset Month Filter"):
+            st.session_state[STATE_KEY] = month_names_sorted
+            st.session_state[WIDGET_KEY] = month_names_sorted
+            st.rerun()
 
-    # --- Multiselect with separate widget key ---
-    with pto_month_filter:
-        selected_months = st.multiselect(
-            "Filter requests by month",
-            options=month_names_sorted,
-            default=st.session_state[STATE_KEY],
-            key=WIDGET_KEY
-        )
+        pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
 
-    # Team Filter
-    with pto_team_filter:
-        selected_pto_teams = st.multiselect(
-            "Filter by Team",
-            options=pto_teams,
-            default=pto_teams,
-            key="pto_team_filter"
-        )
+        # --- Multiselect with separate widget key ---
+        with pto_month_filter:
+            valid_months = month_names_sorted
+            default_months = [m for m in st.session_state[STATE_KEY] if m in valid_months]
 
-    # Location Filter
-    with pto_loc_filter:
-        selected_pto_locations = st.multiselect(
-            "Filter by Location",
-            options=pto_locations,
-            default=pto_locations,
-            key="pto_location_filter"
-        )
-
-
-
-    # --- Convert month names to numbers ---
-    selected_month_nums = [
-        num for num, name in month_name_lookup.items()
-        if name in selected_months
-    ]
-
-
-    # Filter PTO requests by selected months
-    # Filter PTO requests by selected months, team, and location
-    filtered_requests = [
-        req for req in pto_requests
-        if (
-            any(
-                day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
-                for day in req.get('Days', [])
+            selected_months = st.multiselect(
+                "Filter requests by month",
+                options=valid_months,
+                default=default_months,
+                key=WIDGET_KEY
             )
-            and req.get("Team") in selected_pto_teams
-            and req.get("Location") in selected_pto_locations
-        )
-    ]
 
+        # Team Filter
+        with pto_team_filter:
+            selected_pto_teams = st.multiselect(
+                "Filter by Team",
+                options=pto_teams,
+                default=pto_teams,
+                key="pto_team_filter"
+            )
 
+        # Location Filter
+        with pto_loc_filter:
+            selected_pto_locations = st.multiselect(
+                "Filter by Location",
+                options=pto_locations,
+                default=pto_locations,
+                key="pto_location_filter"
+            )
 
+        # --- Convert month names to numbers ---
+        selected_month_nums = [
+            num for num, name in month_name_lookup.items()
+            if name in selected_months
+        ]
 
-    # display requests
-    for i, request in enumerate(filtered_requests):
-        with st.container():
-            pto1, pto2 = st.columns(2)
-
-            # Left side: show request
-            with pto1:
-                if not request.get("TimeRange"):
-                    request.pop("TimeRange", None)
-                st.dataframe(
-                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in request.items()},
-                    use_container_width=True
+        # Filter PTO requests by selected months, team, and location
+        filtered_requests = [
+            req for req in pto_requests
+            if (
+                any(
+                    day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
+                    for day in req.get('Days', [])
                 )
+                and req.get("Team") in selected_pto_teams
+                and req.get("Location") in selected_pto_locations
+            )
+        ]
 
-                # Precompute overlaps
-                overlaps = [
-                    happening for happening in pto_happening
-                    if any(day in request['Days'] for day in happening['Days']) and (
-                        (
-                            request['Team'] in ['Help Desk', 'Service Desk'] and
-                            happening['Team'] in ['Help Desk', 'Service Desk']
-                        ) or
-                        (
-                            request['Team'] not in ['Help Desk', 'Service Desk'] and
-                            happening['Team'] == request['Team']
-                        )
+        # display requests
+        for i, request in enumerate(filtered_requests):
+            with st.container():
+                pto1, pto2 = st.columns(2)
+
+                # Left side: show request
+                with pto1:
+                    if not request.get("TimeRange"):
+                        request.pop("TimeRange", None)
+                    st.dataframe(
+                        {k: ', '.join(v) if isinstance(v, list) else v for k, v in request.items()},
+                        use_container_width=True
                     )
-                ]
 
-                # Precompute overlaps with other PTO requests
-                overlaps_with_requests = [
-                    other for other in pto_requests
-                    if other is not request and any(day in request['Days'] for day in other['Days']) and (
-                        (
-                            request['Team'] in ['Help Desk', 'Service Desk'] and
-                            other['Team'] in ['Help Desk', 'Service Desk']
-                        ) or
-                        (
-                            request['Team'] not in ['Help Desk', 'Service Desk'] and
-                            other['Team'] == request['Team']
+                    # Precompute overlaps
+                    overlaps = [
+                        happening for happening in pto_happening
+                        if any(day in request['Days'] for day in happening['Days']) and (
+                            (
+                                request['Team'] in ['Help Desk', 'Service Desk'] and
+                                happening['Team'] in ['Help Desk', 'Service Desk']
+                            ) or
+                            (
+                                request['Team'] not in ['Help Desk', 'Service Desk'] and
+                                happening['Team'] == request['Team']
+                            )
                         )
-                    )
-                ]
+                    ]
 
-
-
-                # Show toggle if there are overlaps
-                overlap = False  # Ensure it's always defined
-
-                if overlaps or overlaps_with_requests:
-                    overlap = st.toggle("View Overlapping PTO", key=f"overlap_toggle_{i}")
-                else:
-                    st.markdown("*No overlapping PTO*")
-
-
-                # Right side: show overlaps if toggle is on
-                with pto2:
-                    if overlaps and overlap:
-                        st.markdown("Overlapping Happening:")
-                        for happening in overlaps:
-                            if not happening.get("TimeRange"):
-                                happening.pop("TimeRange", None)
-                            st.dataframe(
-                                {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
-                                use_container_width=True
+                    # Precompute overlaps with other PTO requests
+                    overlaps_with_requests = [
+                        other for other in pto_requests
+                        if other is not request and any(day in request['Days'] for day in other['Days']) and (
+                            (
+                                request['Team'] in ['Help Desk', 'Service Desk'] and
+                                other['Team'] in ['Help Desk', 'Service Desk']
+                            ) or
+                            (
+                                request['Team'] not in ['Help Desk', 'Service Desk'] and
+                                other['Team'] == request['Team']
                             )
+                        )
+                    ]
 
-                    if overlaps_with_requests and overlap:
-                        st.markdown("Overlapping Requests:")
-                        for other in overlaps_with_requests:
-                            if not other.get("TimeRange"):
-                                other.pop("TimeRange", None)
-                            st.dataframe(
-                                {k: ', '.join(v) if isinstance(v, list) else v for k, v in other.items()},
-                                use_container_width=True
-                            )
+                    # Show toggle if there are overlaps
+                    overlap = False  # Ensure it's always defined
+
+                    if overlaps or overlaps_with_requests:
+                        overlap = st.toggle("View Overlapping PTO", key=f"overlap_toggle_{i}")
+                    else:
+                        st.markdown("*No overlapping PTO*")
+
+
+                    # Right side: show overlaps if toggle is on
+                    with pto2:
+                        if overlaps and overlap:
+                            st.markdown("Overlapping Happening:")
+                            for happening in overlaps:
+                                if not happening.get("TimeRange"):
+                                    happening.pop("TimeRange", None)
+                                st.dataframe(
+                                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
+                                    use_container_width=True
+                                )
+
+                        if overlaps_with_requests and overlap:
+                            st.markdown("Overlapping Requests:")
+                            for other in overlaps_with_requests:
+                                if not other.get("TimeRange"):
+                                    other.pop("TimeRange", None)
+                                st.dataframe(
+                                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in other.items()},
+                                    use_container_width=True
+                                )
 
 
     # PTO COUNTER AND CALENDAR
@@ -919,7 +935,7 @@ if on:
             dates.append(current)
             current += timedelta(days=1)
 
-        # Format condition parts
+        # Format date fragments into summary search conditions
         year = str(start_date.year)
         summary_parts = [f"summary contains '{d.month}/{str(d.day).zfill(2)}'" for d in dates]
         summary_condition = " or ".join(summary_parts)
@@ -930,6 +946,17 @@ if on:
             "pageSize": 1000
         }
     
+    # helper function for pto search by date - extract team and location
+    def extract_pto_team_location(text):
+        pto_match = re.search(r"\(([^()-]+)\s*-\s*([^()]+)\)", text)
+
+        if pto_match:
+            pto_location = pto_match.group(1).strip()
+            pto_team = pto_match.group(2).strip()
+
+            return pto_location, pto_team
+        return None, None
+
     with pto_cal_col:
         with st.expander("📅 PTO Ticket Search by Date Range"):
 
@@ -937,9 +964,16 @@ if on:
                 col1, col2 = st.columns(2)
                 with col1:
                     start_date = st.date_input("Start Date", value=datetime.today())
+                    pto_team = st.multiselect(
+                        "Team(s)",
+                        options=['CSC', 'Data Center', 'Documentation Specialist', 'East End', 'Escalations', 'Escalations/Service Desk', 'Help Desk', 'HHAR', 'MGE', 'NOC', 'Onboarding', 'Project', 'Safe Horizon', 'Service Desk', 'Supervisor', 'QA', 'Warehouse'],
+                    )
                 with col2:
                     end_date = st.date_input("End Date (ignore for single-day search)", value=start_date)
-
+                    pto_location = st.multiselect(
+                        "Location(s)",
+                        options=['Cyprus', 'East Hampton', 'HHAR', 'Hicksville', 'Kosovo', 'NYC', 'NYC/HHAR', 'Philippines', 'Remote/AU', 'Remote/FL', 'Remote/IN', 'Remote/NC', 'Remote/NJ', 'Remote/NY', 'Remote/SC', 'Remote/TX', 'Remote/WVA', 'Safe Horizon']
+                    )
 
                 submitted = st.form_submit_button("Search")
 
@@ -951,8 +985,31 @@ if on:
                         try:
                             with st.spinner("Fetching PTO tickets..."):
                                 tickets = fetch_pto_tickets(extra_params=params)
-                                st.success(f"Found {len(tickets)} ticket(s).")
+
+                                # normalize multiselect filters
+                                selected_teams = [t.lower() for t in pto_team]
+                                selected_locations = [l.lower() for l in pto_location]
+
+                                # parse and filter tickets based on selected teams and location
+                                pto_filtered = []
                                 for t in tickets:
-                                    st.write(f"• {t['summary']} (ID: {t['id']})")
+                                    location, team = extract_pto_team_location(t.get('summary', ''))
+                                    if location and team:
+                                        team_lower = team.lower()
+                                        location_lower = location.lower()
+                                        t['Team'] = team
+                                        t['Location'] = location
+                                        if (
+                                            (not selected_teams or team_lower in selected_teams) and
+                                            (not selected_locations or location_lower in selected_locations)
+                                        ):
+                                            pto_filtered.append(t)
+
+                                st.success(f"Found {len(tickets)} ticket(s).")
+                                if pto_filtered:
+                                    for t in pto_filtered:
+                                        st.write(f"• {t['summary']} (ID: {t['id']})")
+                                else:
+                                    st.info("No tickets match the selected filters.")
                         except Exception as e:
                             st.error(f"Error: {e}")
