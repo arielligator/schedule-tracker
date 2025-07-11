@@ -819,47 +819,98 @@ if on:
     pto_counter_col, pto_cal_col = st.columns([1,1])
 
     # PTO COUNTER
+    pto_counter_url = "https://cw.lincolncomputers.com/v4_6_release/apis/3.0/service/tickets?conditions=board/id=42 AND status/name not contains \"Closed\"&orderby=id desc&pageSize=1000"
+
+    headers = {
+    'clientid': st.secrets['cw_pto']['clientid'],
+    'Authorization': st.secrets['cw_pto']['auth_header']
+    }
+
+    response = requests.request("GET", pto_counter_url, headers=headers)
+
+    pto_entries = response.json()
+
+    pto_pattern = re.compile(r"""
+        (?P<Name>[^\(]+)                           # Name: everything before first (
+        \(
+            (?P<Location>[^-]+?)\s*-\s*(?P<Team>[^)]+) # Location and Team inside ()
+        \)
+        .*?                                        # Any words (like PTO/Personal)
+        (?P<Days>(\d{1,2}/\d{1,2})(,\s*\d{1,2}/\d{1,2})*) # Dates like 8/11, 8/12
+    """, re.VERBOSE | re.IGNORECASE)
+
+    parsed_pto_data = []
+
+    for entry in pto_entries:
+        summary = entry.get('summary', '')
+        match = pto_pattern.match(summary)
+
+        if match:
+            parsed = match.groupdict()
+            parsed['status'] = entry.get('status').get('name')
+            parsed_pto_data.append(parsed)
+
+    pto_requests = []
+    pto_happening = []
+
+    for entry in parsed_pto_data:
+        if "Needs Approval" in entry['status']:
+            pto_requests.append(entry)
+        else:
+            pto_happening.append(entry)
+    
     from collections import defaultdict
 
-    today = datetime.today()
+    # === Normalization helpers ===
+    def normalize_team(team):
+        return team.lower().replace(" ", "")
 
-    # --- Step 1: Build day → team → count, skipping past dates ---
-    def build_future_day_team_counter(data):
-        counter = defaultdict(lambda: defaultdict(int))
+    def normalize_date(date):
+        return date.strip()
+
+    def build_counts(data):
+        result = defaultdict(lambda: defaultdict(int))
+        raw_date_map = {}  # Map normalized -> original for printing
+
         for entry in data:
-            team = entry.get("Team", "Unknown")
-            for day_str in entry.get("Days", []):
-                try:
-                    day_date = datetime.strptime(day_str.strip(), "%m/%d").replace(year=today.year)
-                    if day_date >= today:
-                        counter[day_str.strip()][team] += 1
-                except ValueError:
-                    continue
-        return counter
+            team_raw = entry["Team"].strip()
+            team = normalize_team(team_raw)
 
-    requests_by_day_team = build_future_day_team_counter(pto_requests)
-    happenings_by_day_team = build_future_day_team_counter(pto_happening)
+            for date in entry["Days"].split(","):
+                raw_date = date.strip()
+                norm_date = normalize_date(raw_date)
+                result[norm_date][team_raw] += 1
+                raw_date_map[norm_date] = raw_date  # Keep original format
 
-    # --- Step 2: Sort by date ---
-    def sorted_by_date(counter_dict):
-        return sorted(counter_dict.items(), key=lambda x: datetime.strptime(x[0], '%m/%d'))
+        return result, raw_date_map
 
-    # --- Step 3: Unified display ---
-    def render_combined_day_team_list(requests, happenings):
-        with pto_counter_col:
-            with st.expander("📊 PTO Requests vs Happening"):
-                for day, req_teams in sorted_by_date(requests):
-                    # Format Requested section
-                    requested_str = ', '.join(f"{count} {team}" for team, count in req_teams.items())
 
-                    # Get Happening section only if that day exists
-                    hap_teams = happenings.get(day, {})
-                    happening_str = ', '.join(f"{count} {team}" for team, count in hap_teams.items())
+    # === Count data ===
+    counts_requests, date_map_req = build_counts(pto_requests)
+    counts_happening, date_map_hap = build_counts(pto_happening)
 
-                    st.markdown(f"**{day}**  \nRequested: {requested_str if requested_str else '—'}  \nHappening: {happening_str if happening_str else '—'}")
+    # === Overlapping dates ===
+    overlapping_dates = set(counts_requests.keys()) & set(counts_happening.keys())
 
-    # --- Display ---
-    render_combined_day_team_list(requests_by_day_team, happenings_by_day_team)
+    # === Format helper ===
+    def format_team_counts(counts_dict):
+        return ", ".join(f"{count} {team}" for team, count in sorted(counts_dict.items()))
+
+            
+    with pto_counter_col:
+        with st.expander("📊 PTO Requests vs Happening"):
+            # === Display output ===
+            for date in sorted(overlapping_dates):
+                day = date_map_req.get(date, date)
+                requested_str = format_team_counts(counts_requests[date])
+                happening_str = format_team_counts(counts_happening[date])
+
+                st.markdown(
+                    f"**{day}**  \n"
+                    f"Requested: {requested_str if requested_str else '—'}  \n"
+                    f"Happening: {happening_str if happening_str else '—'}"
+                )
+
 
 # PTO CALENDAR
     # Build params from user date input
@@ -872,7 +923,7 @@ if on:
             dates.append(current)
             current += timedelta(days=1)
 
-        # Format condition parts
+        # Format date fragments into summary search conditions
         year = str(start_date.year)
         summary_parts = [f"summary contains '{d.month}/{str(d.day).zfill(2)}'" for d in dates]
         summary_condition = " or ".join(summary_parts)
@@ -883,6 +934,17 @@ if on:
             "pageSize": 1000
         }
     
+    # helper function for pto search by date - extract team and location
+    def extract_pto_team_location(text):
+        pto_match = re.search(r"\(([^()-]+)\s*-\s*([^()]+)\)", text)
+
+        if pto_match:
+            pto_location = pto_match.group(1).strip()
+            pto_team = pto_match.group(2).strip()
+
+            return pto_location, pto_team
+        return None, None
+
     with pto_cal_col:
         with st.expander("📅 PTO Ticket Search by Date Range"):
 
@@ -890,9 +952,16 @@ if on:
                 col1, col2 = st.columns(2)
                 with col1:
                     start_date = st.date_input("Start Date", value=datetime.today())
+                    pto_team = st.multiselect(
+                        "Team(s)",
+                        options=['CSC', 'Data Center', 'Documentation Specialist', 'East End', 'Escalations', 'Escalations/NOC', 'Escalations/Service Desk', 'Help Desk', 'HHAR', 'MGE', 'NOC', 'Onboarding', 'Project', 'Safe Horizon', 'Service Desk', 'Supervisor', 'QA', 'Warehouse'],
+                    )
                 with col2:
                     end_date = st.date_input("End Date (ignore for single-day search)", value=start_date)
-
+                    pto_location = st.multiselect(
+                        "Location(s)",
+                        options=['Cyprus', 'East Hampton', 'HHAR', 'Hicksville', 'Kosovo', 'NYC', 'NYC/HHAR', 'Philippines', 'Remote/AU', 'Remote/FL', 'Remote/IN', 'Remote/NC', 'Remote/NJ', 'Remote/NY', 'Remote/SC', 'Remote/TX', 'Remote/WVA', 'Safe Horizon']
+                    )
 
                 submitted = st.form_submit_button("Search")
 
@@ -904,9 +973,35 @@ if on:
                         try:
                             with st.spinner("Fetching PTO tickets..."):
                                 tickets = fetch_pto_tickets(extra_params=params)
-                                st.success(f"Found {len(tickets)} ticket(s).")
+
+                                # normalize multiselect filters
+                                selected_teams = [t.lower() for t in pto_team]
+                                selected_locations = [l.lower() for l in pto_location]
+
+                                # parse and filter tickets based on selected teams and location
+                                pto_filtered = []
                                 for t in tickets:
-                                    st.write(f"• {t['summary']} (ID: {t['id']})")
+                                    location, team = extract_pto_team_location(t.get('summary', ''))
+                                    if location and team:
+                                        team_lower = team.lower()
+                                        location_lower = location.lower()
+                                        t['Team'] = team
+                                        t['Location'] = location
+                                        if (
+                                            (not selected_teams or team_lower in selected_teams) and
+                                            (not selected_locations or location_lower in selected_locations)
+                                        ):
+                                            pto_filtered.append(t)
+
+                                st.success(f"Found {len(tickets)} ticket(s).")
+                                if pto_filtered:
+                                    for t in pto_filtered:
+                                        summary = t.get("summary", "No summary")
+                                        ticket_id = t.get("id", "N/A")
+                                        status_name = t.get("status", {}).get("name", "No status")
+                                        st.write(f"• **{summary.rstrip()}**  \nID: {ticket_id}  \nStatus: {status_name}")
+
+                                else:
+                                    st.info("No tickets match the selected filters.")
                         except Exception as e:
                             st.error(f"Error: {e}")
-
