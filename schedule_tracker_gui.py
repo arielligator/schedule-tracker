@@ -677,142 +677,138 @@ if on:
     if STATE_KEY not in st.session_state:
         st.session_state[STATE_KEY] = month_names_sorted
 
-    # --- Reset button BEFORE multiselect to take effect before widget renders ---
-    if st.button("Reset Month Filter"):
-        st.session_state[STATE_KEY] = month_names_sorted
-        st.session_state[WIDGET_KEY] = month_names_sorted
-        st.rerun()
+    with st.expander("🕒 PTO Requests"):
+        # --- Reset button BEFORE multiselect to take effect before widget renders ---
+        if st.button("Reset Month Filter"):
+            st.session_state[STATE_KEY] = month_names_sorted
+            st.session_state[WIDGET_KEY] = month_names_sorted
+            st.rerun()
 
-    pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
+        pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
 
-    # --- Multiselect with separate widget key ---
-    with pto_month_filter:
-        selected_months = st.multiselect(
-            "Filter requests by month",
-            options=month_names_sorted,
-            default=st.session_state[STATE_KEY],
-            key=WIDGET_KEY
-        )
+        # --- Multiselect with separate widget key ---
+        with pto_month_filter:
+            valid_months = month_names_sorted
+            default_months = [m for m in st.session_state[STATE_KEY] if m in valid_months]
 
-    # Team Filter
-    with pto_team_filter:
-        selected_pto_teams = st.multiselect(
-            "Filter by Team",
-            options=pto_teams,
-            default=pto_teams,
-            key="pto_team_filter"
-        )
-
-    # Location Filter
-    with pto_loc_filter:
-        selected_pto_locations = st.multiselect(
-            "Filter by Location",
-            options=pto_locations,
-            default=pto_locations,
-            key="pto_location_filter"
-        )
-
-
-    # --- Convert month names to numbers ---
-    selected_month_nums = [
-        num for num, name in month_name_lookup.items()
-        if name in selected_months
-    ]
-
-
-    # Filter PTO requests by selected months
-    # Filter PTO requests by selected months, team, and location
-    filtered_requests = [
-        req for req in pto_requests
-        if (
-            any(
-                day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
-                for day in req.get('Days', [])
+            selected_months = st.multiselect(
+                "Filter requests by month",
+                options=valid_months,
+                default=default_months,
+                key=WIDGET_KEY
             )
-            and req.get("Team") in selected_pto_teams
-            and req.get("Location") in selected_pto_locations
-        )
-    ]
 
+        # Team Filter
+        with pto_team_filter:
+            selected_pto_teams = st.multiselect(
+                "Filter by Team",
+                options=pto_teams,
+                default=pto_teams,
+                key="pto_team_filter"
+            )
 
+        # Location Filter
+        with pto_loc_filter:
+            selected_pto_locations = st.multiselect(
+                "Filter by Location",
+                options=pto_locations,
+                default=pto_locations,
+                key="pto_location_filter"
+            )
 
+        # --- Convert month names to numbers ---
+        selected_month_nums = [
+            num for num, name in month_name_lookup.items()
+            if name in selected_months
+        ]
 
-    # display requests
-    for i, request in enumerate(filtered_requests):
-        with st.container():
-            pto1, pto2 = st.columns(2)
-
-            # Left side: show request
-            with pto1:
-                if not request.get("TimeRange"):
-                    request.pop("TimeRange", None)
-                st.dataframe(
-                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in request.items()},
-                    use_container_width=True
+        # Filter PTO requests by selected months, team, and location
+        filtered_requests = [
+            req for req in pto_requests
+            if (
+                any(
+                    day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
+                    for day in req.get('Days', [])
                 )
+                and req.get("Team") in selected_pto_teams
+                and req.get("Location") in selected_pto_locations
+            )
+        ]
 
-                # Precompute overlaps
-                overlaps = [
-                    happening for happening in pto_happening
-                    if any(day in request['Days'] for day in happening['Days']) and (
-                        (
-                            request['Team'] in ['Help Desk', 'Service Desk'] and
-                            happening['Team'] in ['Help Desk', 'Service Desk']
-                        ) or
-                        (
-                            request['Team'] not in ['Help Desk', 'Service Desk'] and
-                            happening['Team'] == request['Team']
-                        )
+        # display requests
+        for i, request in enumerate(filtered_requests):
+            with st.container():
+                pto1, pto2 = st.columns(2)
+
+                # Left side: show request
+                with pto1:
+                    if not request.get("TimeRange"):
+                        request.pop("TimeRange", None)
+                    st.dataframe(
+                        {k: ', '.join(v) if isinstance(v, list) else v for k, v in request.items()},
+                        use_container_width=True
                     )
-                ]
 
-                # Precompute overlaps with other PTO requests
-                overlaps_with_requests = [
-                    other for other in pto_requests
-                    if other is not request and any(day in request['Days'] for day in other['Days']) and (
-                        (
-                            request['Team'] in ['Help Desk', 'Service Desk'] and
-                            other['Team'] in ['Help Desk', 'Service Desk']
-                        ) or
-                        (
-                            request['Team'] not in ['Help Desk', 'Service Desk'] and
-                            other['Team'] == request['Team']
+                    # Precompute overlaps
+                    overlaps = [
+                        happening for happening in pto_happening
+                        if any(day in request['Days'] for day in happening['Days']) and (
+                            (
+                                request['Team'] in ['Help Desk', 'Service Desk'] and
+                                happening['Team'] in ['Help Desk', 'Service Desk']
+                            ) or
+                            (
+                                request['Team'] not in ['Help Desk', 'Service Desk'] and
+                                happening['Team'] == request['Team']
+                            )
                         )
-                    )
-                ]
+                    ]
 
-
-
-                # Show toggle if there are overlaps
-                overlap = False  # Ensure it's always defined
-
-                if overlaps or overlaps_with_requests:
-                    overlap = st.toggle("View Overlapping PTO", key=f"overlap_toggle_{i}")
-                else:
-                    st.markdown("*No overlapping PTO*")
-
-
-                # Right side: show overlaps if toggle is on
-                with pto2:
-                    if overlaps and overlap:
-                        st.markdown("Overlapping Happening:")
-                        for happening in overlaps:
-                            if not happening.get("TimeRange"):
-                                happening.pop("TimeRange", None)
-                            st.dataframe(
-                                {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
-                                use_container_width=True
+                    # Precompute overlaps with other PTO requests
+                    overlaps_with_requests = [
+                        other for other in pto_requests
+                        if other is not request and any(day in request['Days'] for day in other['Days']) and (
+                            (
+                                request['Team'] in ['Help Desk', 'Service Desk'] and
+                                other['Team'] in ['Help Desk', 'Service Desk']
+                            ) or
+                            (
+                                request['Team'] not in ['Help Desk', 'Service Desk'] and
+                                other['Team'] == request['Team']
                             )
+                        )
+                    ]
 
-                    if overlaps_with_requests and overlap:
-                        st.markdown("Overlapping Requests:")
-                        for other in overlaps_with_requests:
-                            if not other.get("TimeRange"):
-                                other.pop("TimeRange", None)
-                            st.dataframe(
-                                {k: ', '.join(v) if isinstance(v, list) else v for k, v in other.items()},
-                                use_container_width=True
-                            )
+                    # Show toggle if there are overlaps
+                    overlap = False  # Ensure it's always defined
+
+                    if overlaps or overlaps_with_requests:
+                        overlap = st.toggle("View Overlapping PTO", key=f"overlap_toggle_{i}")
+                    else:
+                        st.markdown("*No overlapping PTO*")
+
+
+                    # Right side: show overlaps if toggle is on
+                    with pto2:
+                        if overlaps and overlap:
+                            st.markdown("Overlapping Happening:")
+                            for happening in overlaps:
+                                if not happening.get("TimeRange"):
+                                    happening.pop("TimeRange", None)
+                                st.dataframe(
+                                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in happening.items()},
+                                    use_container_width=True
+                                )
+
+                        if overlaps_with_requests and overlap:
+                            st.markdown("Overlapping Requests:")
+                            for other in overlaps_with_requests:
+                                if not other.get("TimeRange"):
+                                    other.pop("TimeRange", None)
+                                st.dataframe(
+                                    {k: ', '.join(v) if isinstance(v, list) else v for k, v in other.items()},
+                                    use_container_width=True
+                                )
 
 
     # PTO COUNTER AND CALENDAR
@@ -954,11 +950,10 @@ if on:
                     start_date = st.date_input("Start Date", value=datetime.today())
                     pto_team = st.multiselect(
                         "Team(s)",
-                        options=['CSC', 'Data Center', 'Documentation Specialist', 'East End', 'Escalations', 'Escalations/Service Desk', 'Help Desk', 'HHAR', 'MGE', 'NOC', 'Onboarding', 'Project', 'Safe Horizon', 'Service Desk', 'Supervisor', 'QA', 'Warehouse'],
+                        options=['CSC', 'Data Center', 'Documentation Specialist', 'East End', 'Escalations', 'Escalations/NOC', 'Escalations/Service Desk', 'Help Desk', 'HHAR', 'MGE', 'NOC', 'Onboarding', 'Project', 'Safe Horizon', 'Service Desk', 'Supervisor', 'QA', 'Warehouse'],
                     )
                 with col2:
                     end_date = st.date_input("End Date (ignore for single-day search)", value=start_date)
-
                     pto_location = st.multiselect(
                         "Location(s)",
                         options=['Cyprus', 'East Hampton', 'HHAR', 'Hicksville', 'Kosovo', 'NYC', 'NYC/HHAR', 'Philippines', 'Remote/AU', 'Remote/FL', 'Remote/IN', 'Remote/NC', 'Remote/NJ', 'Remote/NY', 'Remote/SC', 'Remote/TX', 'Remote/WVA', 'Safe Horizon']
@@ -966,11 +961,14 @@ if on:
 
                 submitted = st.form_submit_button("Search")
 
-@@ -951,8 +985,31 @@ def build_summary_date_params(start_date, end_date):
+                if submitted:
+                    if start_date > end_date:
+                        st.error("Start date must be before or equal to end date.")
+                    else:
+                        params = build_summary_date_params(start_date, end_date)
                         try:
                             with st.spinner("Fetching PTO tickets..."):
                                 tickets = fetch_pto_tickets(extra_params=params)
-                                st.success(f"Found {len(tickets)} ticket(s).")
 
                                 # normalize multiselect filters
                                 selected_teams = [t.lower() for t in pto_team]
@@ -979,7 +977,6 @@ if on:
                                 # parse and filter tickets based on selected teams and location
                                 pto_filtered = []
                                 for t in tickets:
-                                    st.write(f"• {t['summary']} (ID: {t['id']})")
                                     location, team = extract_pto_team_location(t.get('summary', ''))
                                     if location and team:
                                         team_lower = team.lower()
@@ -995,7 +992,11 @@ if on:
                                 st.success(f"Found {len(tickets)} ticket(s).")
                                 if pto_filtered:
                                     for t in pto_filtered:
-                                        st.write(f"• {t['summary']} (ID: {t['id']})")
+                                        summary = t.get("summary", "No summary")
+                                        ticket_id = t.get("id", "N/A")
+                                        status_name = t.get("status", {}).get("name", "No status")
+                                        st.write(f"• **{summary.rstrip()}**  \nID: {ticket_id}  \nStatus: {status_name}")
+
                                 else:
                                     st.info("No tickets match the selected filters.")
                         except Exception as e:
