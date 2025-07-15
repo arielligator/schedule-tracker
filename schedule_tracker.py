@@ -251,7 +251,7 @@ df = pd.DataFrame(rows)
 omit = ['Shift','Work Day Range']
 show_cols = [c for c in df.columns if c not in omit]
 df = df[show_cols]
-df_order = ['Name', 'Team', 'Location', 'Work Days','Start Time', 'End Time', 'Lunch']
+df_order = ['Name', 'Team', 'Location', 'Work Days','Start Time', 'End Time', 'Lunch', 'Companies', 'Handles VIP']
 df = df[df_order]
 df['Work Days'] = df['Work Days'].str.join(', ')
 
@@ -276,3 +276,5 @@ oncall_reader = csv.DictReader(f2) # read from that
 
 df_oncall = pd.DataFrame(oncall_reader)
 df_oncall.rename(columns={df_oncall.columns[0]: ''}, inplace=True)
+
+print(df_oncall)
