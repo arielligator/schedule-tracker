@@ -954,10 +954,11 @@ if on:
                     start_date = st.date_input("Start Date", value=datetime.today())
                     pto_team = st.multiselect(
                         "Team(s)",
-                        options=['CSC', 'Data Center', 'Documentation Specialist', 'East End', 'Escalations', 'Escalations/NOC', 'Escalations/Service Desk', 'Help Desk', 'HHAR', 'MGE', 'NOC', 'Onboarding', 'Project', 'Safe Horizon', 'Service Desk', 'Supervisor', 'QA', 'Warehouse'],
+                        options=['CSC', 'Data Center', 'Documentation Specialist', 'East End', 'Escalations', 'Escalations/Service Desk', 'Help Desk', 'HHAR', 'MGE', 'NOC', 'Onboarding', 'Project', 'Safe Horizon', 'Service Desk', 'Supervisor', 'QA', 'Warehouse'],
                     )
                 with col2:
                     end_date = st.date_input("End Date (ignore for single-day search)", value=start_date)
+
                     pto_location = st.multiselect(
                         "Location(s)",
                         options=['Cyprus', 'East Hampton', 'HHAR', 'Hicksville', 'Kosovo', 'NYC', 'NYC/HHAR', 'Philippines', 'Remote/AU', 'Remote/FL', 'Remote/IN', 'Remote/NC', 'Remote/NJ', 'Remote/NY', 'Remote/SC', 'Remote/TX', 'Remote/WVA', 'Safe Horizon']
@@ -965,14 +966,11 @@ if on:
 
                 submitted = st.form_submit_button("Search")
 
-                if submitted:
-                    if start_date > end_date:
-                        st.error("Start date must be before or equal to end date.")
-                    else:
-                        params = build_summary_date_params(start_date, end_date)
+@@ -951,8 +985,31 @@ def build_summary_date_params(start_date, end_date):
                         try:
                             with st.spinner("Fetching PTO tickets..."):
                                 tickets = fetch_pto_tickets(extra_params=params)
+                                st.success(f"Found {len(tickets)} ticket(s).")
 
                                 # normalize multiselect filters
                                 selected_teams = [t.lower() for t in pto_team]
@@ -981,6 +979,7 @@ if on:
                                 # parse and filter tickets based on selected teams and location
                                 pto_filtered = []
                                 for t in tickets:
+                                    st.write(f"• {t['summary']} (ID: {t['id']})")
                                     location, team = extract_pto_team_location(t.get('summary', ''))
                                     if location and team:
                                         team_lower = team.lower()
@@ -996,11 +995,7 @@ if on:
                                 st.success(f"Found {len(tickets)} ticket(s).")
                                 if pto_filtered:
                                     for t in pto_filtered:
-                                        summary = t.get("summary", "No summary")
-                                        ticket_id = t.get("id", "N/A")
-                                        status_name = t.get("status", {}).get("name", "No status")
-                                        st.write(f"• **{summary.rstrip()}**  \nID: {ticket_id}  \nStatus: {status_name}")
-
+                                        st.write(f"• {t['summary']} (ID: {t['id']})")
                                 else:
                                     st.info("No tickets match the selected filters.")
                         except Exception as e:
