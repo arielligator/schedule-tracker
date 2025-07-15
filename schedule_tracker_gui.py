@@ -267,9 +267,62 @@ with filters:
             elif valid:
                 st.success(f"Range: **{start_t.strftime('%H:%M')}** – **{end_t.strftime('%H:%M')}**")
 
+    # COMPANIES FILTER
+    # Normalize the 'Companies' column and split into a list
+    df['Companies'] = df['Companies'].fillna('').astype(str)
+    # Aggressive normalization: strip whitespace around each company name
+    df['Company List'] = (
+        df['Companies']
+        .str.split(',')
+        .apply(lambda lst: [c.strip() for c in lst if c.strip()])
+    )
+        
+    # extract unique companies
+    all_companies = sorted({c for sublist in df['Company List'] for c in sublist})
+
+    with names_col:
+        # Use comp_sel as the key
+        st.multiselect(
+            "Companies",
+            options=clean_category(df['Companies'].str.split(',').explode()),
+            key="comp_sel",
+            placeholder="Companies",
+            label_visibility="collapsed"
+        )
+
+        # Grab the selected companies from session_state
+        sel = st.session_state.get('comp_sel', [])
+
+        # Match any row where at least one selected company is present
+        matches = [
+            row for row in df['Companies'].dropna().astype(str)
+            if any(company.strip() in row for company in sel)
+        ]
+
+        st.session_state['filters']['Companies'] = matches
+
+    # VIP FILTER
+    with depts_col:
+        sel = st.multiselect(
+        "VIP",
+        options=clean_category(df["Handles VIP"]),
+        default=None,
+        key="vip_sel",
+        placeholder="Handles VIP",
+        label_visibility="collapsed"
+    )
+    st.session_state['filters']['Handles VIP'] = sel
+
+
+
 # ============================================================================
 # APPLY TIME FILTERS
 filtered_df = dynamic.filter_df()
+
+# for col, vals in self.active_filters.items():
+#     if col == "Companies":
+#         df = df[df["Companies"].isin(vals)]
+
 
 mode = st.session_state.get('time_mode', 'All')
 if mode == "Now":
@@ -328,6 +381,7 @@ elif mode == "Custom Time Range":
                 )
             ]
 
+
 # ============================================================================
 # RENDER DATA & VISUALS
 
@@ -339,9 +393,11 @@ def format_lunch(s: str) -> str:
         s.strip()
     )
 
+df_display = filtered_df.drop(columns=['Company List'])
+
 with data:
     st.dataframe(
-        filtered_df.style.format({
+        df_display.style.format({
             'Start Time': lambda s: parse_time(s).strftime('%I:%M %p').lstrip('0'),
             'End Time': lambda s: parse_time(s).strftime('%I:%M %p').lstrip('0'),
             'Lunch': format_lunch,
@@ -746,10 +802,10 @@ if on:
 
     with st.expander("🕒 PTO Requests"):
         # --- Reset button BEFORE multiselect to take effect before widget renders ---
-        if st.button("Reset Month Filter"):
-            st.session_state[STATE_KEY] = month_names_sorted
-            st.session_state[WIDGET_KEY] = month_names_sorted
-            st.rerun()
+        # if st.button("Reset Month Filter"):
+        #     st.session_state[STATE_KEY] = month_names_sorted
+        #     st.session_state[WIDGET_KEY] = month_names_sorted
+        #     st.rerun()
 
         pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
 
@@ -793,12 +849,21 @@ if on:
         filtered_requests = [
             req for req in pto_requests
             if (
-                any(
-                    day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
-                    for day in req.get('Days', [])
+                (
+                    not selected_month_nums or
+                    any(
+                        day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
+                        for day in req.get('Days', [])
+                    )
                 )
-                and req.get("Team") in selected_pto_teams
-                and req.get("Location") in selected_pto_locations
+                and (
+                    not selected_pto_teams or
+                    req.get("Team") in selected_pto_teams
+                )
+                and (
+                    not selected_pto_locations or
+                    req.get("Location") in selected_pto_locations
+                )
             )
         ]
 
