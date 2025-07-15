@@ -221,9 +221,62 @@ with filters:
             elif valid:
                 st.success(f"Range: **{start_t.strftime('%H:%M')}** – **{end_t.strftime('%H:%M')}**")
 
+    # COMPANIES FILTER
+    # Normalize the 'Companies' column and split into a list
+    df['Companies'] = df['Companies'].fillna('').astype(str)
+    # Aggressive normalization: strip whitespace around each company name
+    df['Company List'] = (
+        df['Companies']
+        .str.split(',')
+        .apply(lambda lst: [c.strip() for c in lst if c.strip()])
+    )
+        
+    # extract unique companies
+    all_companies = sorted({c for sublist in df['Company List'] for c in sublist})
+
+    with names_col:
+        # Use comp_sel as the key
+        st.multiselect(
+            "Companies",
+            options=clean_category(df['Companies'].str.split(',').explode()),
+            key="comp_sel",
+            placeholder="Companies",
+            label_visibility="collapsed"
+        )
+
+        # Grab the selected companies from session_state
+        sel = st.session_state.get('comp_sel', [])
+
+        # Match any row where at least one selected company is present
+        matches = [
+            row for row in df['Companies'].dropna().astype(str)
+            if any(company.strip() in row for company in sel)
+        ]
+
+        st.session_state['filters']['Companies'] = matches
+
+    # VIP FILTER
+    with depts_col:
+        sel = st.multiselect(
+        "VIP",
+        options=clean_category(df["Handles VIP"]),
+        default=None,
+        key="vip_sel",
+        placeholder="Handles VIP",
+        label_visibility="collapsed"
+    )
+    st.session_state['filters']['Handles VIP'] = sel
+
+
+
 # ============================================================================
 # APPLY TIME FILTERS
 filtered_df = dynamic.filter_df()
+
+# for col, vals in self.active_filters.items():
+#     if col == "Companies":
+#         df = df[df["Companies"].isin(vals)]
+
 
 mode = st.session_state.get('time_mode', 'All')
 if mode == "Now":
@@ -282,6 +335,7 @@ elif mode == "Custom Time Range":
                 )
             ]
 
+
 # ============================================================================
 # RENDER DATA & VISUALS
 
@@ -293,13 +347,16 @@ def format_lunch(s: str) -> str:
         s.strip()
     )
 
+df_display = filtered_df.drop(columns=['Company List'])
+
 with data:
     st.dataframe(
-        filtered_df.style.format({
+        df_display.style.format({
             'Start Time': lambda s: parse_time(s).strftime('%I:%M %p').lstrip('0'),
             'End Time': lambda s: parse_time(s).strftime('%I:%M %p').lstrip('0'),
             'Lunch': format_lunch,
         }), use_container_width=True)
+
 
 with count:
     st.text(f"Total rows: {len(filtered_df)}")
@@ -475,25 +532,42 @@ with counter:
 
             st.text(f"People working {selected_label}:")
 
-            filtered_people = df_base[
-                df_base.apply(
-                    lambda r: interval_overlaps(
-                        parse_time(r["Start Time"]),
-                        parse_time(r["End Time"]),
-                        selected_start,
-                        selected_end
-                    ),
-                    axis=1
-                )
-            ]
+            def get_status(row):
+                try:
+                    work_start = parse_time(row["Start Time"])
+                    work_end   = parse_time(row["End Time"])
 
-            # Only show names (assumes column is named "Employee" or "Name")
+                    lunch_raw = row.get("Lunch", "").strip()
+                    has_lunch = lunch_raw and lunch_raw.lower() != "none"
+
+                    if has_lunch:
+                        lunch_start = parse_time(lunch_raw)
+                        lunch_end = (datetime.combine(datetime.today(), lunch_start) + pd.Timedelta(hours=1)).time()
+                    else:
+                        lunch_start = lunch_end = None
+
+                    if interval_overlaps(work_start, work_end, selected_start, selected_end):
+                        if lunch_start and interval_overlaps(lunch_start, lunch_end, selected_start, selected_end):
+                            return "At Lunch"
+                        return "Working"
+                    return None
+                except Exception:
+                    return None
+
+            # Add status column
+            df_base["Status"] = df_base.apply(get_status, axis=1)
+
+            # Only include rows where someone is working (with or without lunch)
+            filtered_people = df_base[df_base["Status"].notnull()]
+
             if "Employee" in filtered_people.columns:
-                st.dataframe(filtered_people[["Employee"]], use_container_width=True)
+                st.dataframe(filtered_people[["Employee", "Status"]], use_container_width=True)
             elif "Name" in filtered_people.columns:
-                st.dataframe(filtered_people[["Name"]], use_container_width=True)
+                st.dataframe(filtered_people[["Name", "Status"]], use_container_width=True)
             else:
                 st.warning("Couldn't find a 'Name' or 'Employee' column to display.")
+
+
 
 # ============================================================================
 # ON CALL
@@ -501,6 +575,7 @@ with counter:
 oncall_toggle = st.toggle("On Call")
 if oncall_toggle:
     st.dataframe(df_oncall, use_container_width=True)
+
 
 # ============================================================================
 # DISPATCH
@@ -619,6 +694,8 @@ dispatch_toggle = st.toggle("Dispatch")
 if dispatch_toggle:
     st.dataframe(dispatch_df_cleaned, use_container_width=True)
 
+
+
 # ============================================================================
 # PTO VIEWER
 
@@ -679,10 +756,10 @@ if on:
 
     with st.expander("🕒 PTO Requests"):
         # --- Reset button BEFORE multiselect to take effect before widget renders ---
-        if st.button("Reset Month Filter"):
-            st.session_state[STATE_KEY] = month_names_sorted
-            st.session_state[WIDGET_KEY] = month_names_sorted
-            st.rerun()
+        # if st.button("Reset Month Filter"):
+        #     st.session_state[STATE_KEY] = month_names_sorted
+        #     st.session_state[WIDGET_KEY] = month_names_sorted
+        #     st.rerun()
 
         pto_month_filter, pto_team_filter, pto_loc_filter = st.columns(3)
 
@@ -726,12 +803,21 @@ if on:
         filtered_requests = [
             req for req in pto_requests
             if (
-                any(
-                    day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
-                    for day in req.get('Days', [])
+                (
+                    not selected_month_nums or
+                    any(
+                        day.split('/')[0].isdigit() and int(day.split('/')[0]) in selected_month_nums
+                        for day in req.get('Days', [])
+                    )
                 )
-                and req.get("Team") in selected_pto_teams
-                and req.get("Location") in selected_pto_locations
+                and (
+                    not selected_pto_teams or
+                    req.get("Team") in selected_pto_teams
+                )
+                and (
+                    not selected_pto_locations or
+                    req.get("Location") in selected_pto_locations
+                )
             )
         ]
 
